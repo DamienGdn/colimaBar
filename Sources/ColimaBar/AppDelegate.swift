@@ -1,0 +1,54 @@
+import AppKit
+import ServiceManagement
+import UserNotifications
+import ColimaBarCore
+
+final class AppDelegate: NSObject, NSApplicationDelegate {
+    private var manager: ColimaManager!
+    private var statusBarController: StatusBarController!
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        requestNotificationPermission()
+        manager = ColimaManager()
+        statusBarController = StatusBarController(manager: manager)
+        manager.startPolling()
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        manager.stopPolling()
+    }
+
+    private func requestNotificationPermission() {
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
+    }
+
+    func showError(_ message: String) {
+        let content = UNMutableNotificationContent()
+        content.title = "ColimaBar"
+        content.body = message
+        let request = UNNotificationRequest(
+            identifier: UUID().uuidString,
+            content: content,
+            trigger: nil
+        )
+        UNUserNotificationCenter.current().add(request)
+    }
+
+    // MARK: - Login item
+
+    func isLoginItemEnabled() -> Bool {
+        SMAppService.mainApp.status == .enabled
+    }
+
+    func toggleLoginItem() {
+        do {
+            if isLoginItemEnabled() {
+                try SMAppService.mainApp.unregister()
+            } else {
+                try SMAppService.mainApp.register()
+            }
+        } catch {
+            showError("Impossible de modifier le démarrage automatique : \(error.localizedDescription)")
+        }
+    }
+}
