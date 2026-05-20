@@ -147,4 +147,19 @@ func test_fetchStateSync_invalidJSON_returnsUnknown() {
     check(state.colima == ColimaRunningState.unknown, "invalid JSON → unknown state")
 }
 
-// ColimaConfig tests added in Task 8 (Sources/ColimaBarCore/ColimaConfig.swift)
+// MARK: - ColimaConfig tests
+
+func test_colimaConfig() {
+    UserDefaults.standard.removeObject(forKey: "colima.desiredCPUs")
+    UserDefaults.standard.removeObject(forKey: "colima.desiredMemoryGB")
+    check(ColimaConfig.desiredCPUs == 2, "default CPUs = 2")
+    check(ColimaConfig.desiredMemoryGB == 4, "default memory = 4 GB")
+    ColimaConfig.desiredCPUs = 6
+    check(ColimaConfig.desiredCPUs == 6, "persist CPUs = 6")
+    ColimaConfig.desiredMemoryGB = 8
+    check(ColimaConfig.desiredMemoryGB == 8, "persist memory = 8 GB")
+    check(ColimaConfig.cpuOptions.contains(2), "CPU options has 2")
+    check(ColimaConfig.cpuOptions.contains(4), "CPU options has 4")
+    UserDefaults.standard.removeObject(forKey: "colima.desiredCPUs")
+    UserDefaults.standard.removeObject(forKey: "colima.desiredMemoryGB")
+}

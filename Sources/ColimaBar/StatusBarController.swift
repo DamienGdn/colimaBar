@@ -81,8 +81,47 @@ final class StatusBarController {
 
         menu.addItem(NSMenuItem.separator())
 
-        // Placeholder for config submenu — populated in Task 8
-        // (cpuMenuItems and memMenuItems arrays, configItem NSMenuItem)
+        menu.addItem(NSMenuItem.separator())
+
+        let configItem = NSMenuItem(title: "⚙ Configuration", action: nil, keyEquivalent: "")
+        let configMenu = NSMenu()
+
+        let cpuHeader = NSMenuItem(title: "CPUs", action: nil, keyEquivalent: "")
+        cpuHeader.isEnabled = false
+        configMenu.addItem(cpuHeader)
+
+        for cpu in ColimaConfig.cpuOptions {
+            let item = NSMenuItem(
+                title: "\(cpu) CPU\(cpu > 1 ? "s" : "")",
+                action: #selector(setCPU(_:)),
+                keyEquivalent: ""
+            )
+            item.tag = cpu
+            item.target = self
+            configMenu.addItem(item)
+            cpuMenuItems.append(item)
+        }
+
+        configMenu.addItem(NSMenuItem.separator())
+
+        let memHeader = NSMenuItem(title: "Mémoire", action: nil, keyEquivalent: "")
+        memHeader.isEnabled = false
+        configMenu.addItem(memHeader)
+
+        for gb in ColimaConfig.memoryOptions {
+            let item = NSMenuItem(
+                title: "\(gb) GB",
+                action: #selector(setMemory(_:)),
+                keyEquivalent: ""
+            )
+            item.tag = gb
+            item.target = self
+            configMenu.addItem(item)
+            memMenuItems.append(item)
+        }
+
+        configItem.submenu = configMenu
+        menu.addItem(configItem)
 
         loginItem = NSMenuItem(title: "Lancer au démarrage", action: #selector(toggleLoginItem), keyEquivalent: "")
         loginItem.target = self
@@ -215,5 +254,45 @@ final class StatusBarController {
         if let appDelegate = NSApp.delegate as? AppDelegate {
             loginItem.state = appDelegate.isLoginItemEnabled() ? .on : .off
         }
+    }
+
+    @objc private func setCPU(_ sender: NSMenuItem) {
+        let cpus = sender.tag
+        ColimaConfig.desiredCPUs = cpus
+        for item in cpuMenuItems { item.state = item.tag == cpus ? .on : .off }
+        if isColimaRunning { restartWithNewConfig() }
+    }
+
+    @objc private func setMemory(_ sender: NSMenuItem) {
+        let gb = sender.tag
+        ColimaConfig.desiredMemoryGB = gb
+        for item in memMenuItems { item.state = item.tag == gb ? .on : .off }
+        if isColimaRunning { restartWithNewConfig() }
+    }
+
+    private func restartWithNewConfig() {
+        manager.stopColima(onTransition: { [weak self] state in
+            self?.update(state: state)
+        }, completion: { [weak self] result in
+            guard let self else { return }
+            switch result {
+            case .success:
+                self.manager.startColima(onTransition: { [weak self] state in
+                    self?.update(state: state)
+                }, completion: { [weak self] result in
+                    switch result {
+                    case .success(let state):
+                        self?.update(state: state)
+                        if state.portainerExists {
+                            NSWorkspace.shared.open(URL(string: "https://localhost:9443")!)
+                        }
+                    case .failure(let error):
+                        (NSApp.delegate as? AppDelegate)?.showError(error.localizedDescription)
+                    }
+                })
+            case .failure(let error):
+                (NSApp.delegate as? AppDelegate)?.showError(error.localizedDescription)
+            }
+        })
     }
 }

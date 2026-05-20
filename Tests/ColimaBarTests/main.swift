@@ -12,7 +12,7 @@ test_fetchStateSync_running_portainerExists()
 test_fetchStateSync_running_portainerMissing()
 test_fetchStateSync_stopped_skipsDockerCheck()
 test_fetchStateSync_invalidJSON_returnsUnknown()
-// test_colimaConfig() — activated in Task 8 (ColimaConfig not yet implemented)
+test_colimaConfig()
 
 print("\n\(_passed) passed, \(_failed) failed")
 if _failed > 0 {
