@@ -29,4 +29,33 @@ public final class ColimaManager {
         let lines = output.components(separatedBy: .newlines)
         return lines.contains { $0.trimmingCharacters(in: .whitespaces) == "portainer" }
     }
+
+    // MARK: - State fetch
+
+    public func fetchStateSync() -> ColimaAppState {
+        let listResult = shell.run(colimaPath, args: ["list", "--json"])
+        guard let entry = Self.parseListJSON(listResult.output) else {
+            return .unknown
+        }
+
+        let isRunning = entry.status.lowercased() == "running"
+        let memoryGB = Double(entry.memory) / 1_073_741_824
+
+        var portainerExists = false
+        if isRunning {
+            let r = shell.run(dockerPath, args: [
+                "ps", "-a",
+                "--filter", "name=^portainer$",
+                "--format", "{{.Names}}"
+            ])
+            portainerExists = Self.portainerExistsInOutput(r.output)
+        }
+
+        return ColimaAppState(
+            colima: isRunning ? .running : .stopped,
+            cpus: entry.cpus,
+            memoryGB: memoryGB,
+            portainerExists: portainerExists
+        )
+    }
 }

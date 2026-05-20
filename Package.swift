@@ -14,7 +14,7 @@ let package = Package(
             dependencies: ["ColimaBarCore"],
             path: "Sources/ColimaBar"
         ),
-        .testTarget(
+        .executableTarget(
             name: "ColimaBarTests",
             dependencies: ["ColimaBarCore"],
             path: "Tests/ColimaBarTests"
