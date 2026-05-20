@@ -7,27 +7,40 @@ public enum ColimaRunningState: Equatable {
     case unknown
 }
 
+public struct ResourceUsage: Equatable {
+    public let cpuPercent: Double      // sum across all running containers
+    public let memUsedMiB: Double
+    public let memTotalGiB: Double
+
+    public var memUsedFormatted: String {
+        memUsedMiB >= 1024
+            ? String(format: "%.1f GB", memUsedMiB / 1024)
+            : String(format: "%.0f MB", memUsedMiB)
+    }
+}
+
 public struct ColimaAppState: Equatable {
     public let colima: ColimaRunningState
     public let cpus: Int?
     public let memoryGB: Double?
     public let portainerExists: Bool
+    public let usage: ResourceUsage?
 
     public init(
         colima: ColimaRunningState,
         cpus: Int? = nil,
         memoryGB: Double? = nil,
-        portainerExists: Bool = false
+        portainerExists: Bool = false,
+        usage: ResourceUsage? = nil
     ) {
         self.colima = colima
         self.cpus = cpus
         self.memoryGB = memoryGB
         self.portainerExists = portainerExists
+        self.usage = usage
     }
 
-    public static let unknown = ColimaAppState(
-        colima: .unknown, cpus: nil, memoryGB: nil, portainerExists: false
-    )
+    public static let unknown = ColimaAppState(colima: .unknown)
 }
 
 public struct ColimaListEntry: Codable {

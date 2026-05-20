@@ -10,8 +10,10 @@ build:
 bundle: build
 	rm -rf $(APP)
 	mkdir -p $(APP)/Contents/MacOS
+	mkdir -p $(APP)/Contents/Resources
 	cp .build/release/$(BINARY) $(APP)/Contents/MacOS/
 	cp Resources/Info.plist $(APP)/Contents/
+	cp Resources/colimabar.png Resources/colimabar@2x.png $(APP)/Contents/Resources/
 	codesign --force --sign - $(APP)
 	@echo "Bundle: $(APP)"
 

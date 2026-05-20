@@ -9,6 +9,7 @@ final class StatusBarController {
     // Status display items
     private var colimaStatusItem: NSMenuItem!
     private var resourcesItem: NSMenuItem!
+    private var usageItem: NSMenuItem!
 
     // Action items
     private var startItem: NSMenuItem!
@@ -51,6 +52,11 @@ final class StatusBarController {
         resourcesItem.isEnabled = false
         resourcesItem.isHidden = true
         menu.addItem(resourcesItem)
+
+        usageItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+        usageItem.isEnabled = false
+        usageItem.isHidden = true
+        menu.addItem(usageItem)
 
         menu.addItem(NSMenuItem.separator())
 
@@ -144,16 +150,25 @@ final class StatusBarController {
         guard let button = statusItem.button else { return }
         let color: NSColor
         switch colima {
-        case .running:                  color = .systemGreen
-        case .stopped, .unknown:        color = .secondaryLabelColor
-        case .transitioning:            color = .systemYellow
+        case .running:              color = .systemGreen
+        case .stopped, .unknown:   color = .secondaryLabelColor
+        case .transitioning:       color = .systemYellow
         }
-        let config = NSImage.SymbolConfiguration(paletteColors: [color])
-        if let base = NSImage(systemSymbolName: "shippingbox.fill", accessibilityDescription: "ColimaBar"),
-           let colored = base.withSymbolConfiguration(config) {
-            colored.isTemplate = false
-            button.image = colored
+        button.image = colimaIcon(tinted: color)
+    }
+
+    private func colimaIcon(tinted color: NSColor) -> NSImage {
+        let base = NSImage(named: "colimabar")
+            ?? NSImage(systemSymbolName: "shippingbox.fill", accessibilityDescription: "ColimaBar")!
+        let size = base.size
+        let result = NSImage(size: size, flipped: false) { rect in
+            base.draw(in: rect)
+            color.set()
+            rect.fill(using: .sourceAtop)
+            return true
         }
+        result.isTemplate = false
+        return result
     }
 
     func updateMenuItems(state: ColimaAppState) {
@@ -173,10 +188,18 @@ final class StatusBarController {
         }
 
         if let cpus = state.cpus, let mem = state.memoryGB {
-            resourcesItem.title = String(format: "   CPUs: %d  |  Mémoire: %.0f GB", cpus, mem)
+            resourcesItem.title = String(format: "   CPUs: %d  |  Mémoire allouée: %.0f GB", cpus, mem)
             resourcesItem.isHidden = false
         } else {
             resourcesItem.isHidden = true
+        }
+
+        if let u = state.usage {
+            usageItem.title = String(format: "   CPU: %.1f%%  |  RAM: %@ / %.1f GB",
+                                     u.cpuPercent, u.memUsedFormatted, u.memTotalGiB)
+            usageItem.isHidden = false
+        } else {
+            usageItem.isHidden = true
         }
 
         startItem.isEnabled = !running && !transitioning

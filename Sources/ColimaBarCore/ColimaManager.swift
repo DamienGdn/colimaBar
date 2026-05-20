@@ -30,6 +30,47 @@ public final class ColimaManager {
         return lines.contains { $0.trimmingCharacters(in: .whitespaces) == "portainer" }
     }
 
+    // Parses `docker stats --no-stream --format "{{.CPUPerc}}\t{{.MemUsage}}"` output.
+    public static func parseDockerStats(_ output: String) -> ResourceUsage? {
+        var totalCPU = 0.0
+        var totalMemMiB = 0.0
+        var limitGiB = 0.0
+
+        let lines = output.components(separatedBy: .newlines).filter { !$0.isEmpty }
+        guard !lines.isEmpty else { return nil }
+
+        for line in lines {
+            let parts = line.components(separatedBy: "\t")
+            guard parts.count >= 2 else { continue }
+
+            let cpuStr = parts[0].trimmingCharacters(in: .whitespaces).replacingOccurrences(of: "%", with: "")
+            if let cpu = Double(cpuStr) { totalCPU += cpu }
+
+            let memParts = parts[1].trimmingCharacters(in: .whitespaces).components(separatedBy: " / ")
+            if memParts.count >= 2 {
+                totalMemMiB += parseSizeMiB(memParts[0].trimmingCharacters(in: .whitespaces))
+                if limitGiB == 0 { limitGiB = parseSizeGiB(memParts[1].trimmingCharacters(in: .whitespaces)) }
+            }
+        }
+
+        guard limitGiB > 0 else { return nil }
+        return ResourceUsage(cpuPercent: totalCPU, memUsedMiB: totalMemMiB, memTotalGiB: limitGiB)
+    }
+
+    private static func parseSizeMiB(_ s: String) -> Double {
+        if s.hasSuffix("GiB"), let v = Double(s.dropLast(3)) { return v * 1024 }
+        if s.hasSuffix("MiB"), let v = Double(s.dropLast(3)) { return v }
+        if s.hasSuffix("kB"),  let v = Double(s.dropLast(2)) { return v / 1024 }
+        if s.hasSuffix("B"),   let v = Double(s.dropLast(1)) { return v / 1_048_576 }
+        return 0
+    }
+
+    private static func parseSizeGiB(_ s: String) -> Double {
+        if s.hasSuffix("GiB"), let v = Double(s.dropLast(3)) { return v }
+        if s.hasSuffix("MiB"), let v = Double(s.dropLast(3)) { return v / 1024 }
+        return 0
+    }
+
     // MARK: - Polling
 
     public func startPolling() {
@@ -148,6 +189,7 @@ public final class ColimaManager {
         let memoryGB = Double(entry.memory) / 1_073_741_824
 
         var portainerExists = false
+        var usage: ResourceUsage? = nil
         if isRunning {
             let r = shell.run(dockerPath, args: [
                 "ps", "-a",
@@ -155,13 +197,19 @@ public final class ColimaManager {
                 "--format", "{{.Names}}"
             ])
             portainerExists = Self.portainerExistsInOutput(r.output)
+
+            let statsResult = shell.run(dockerPath, args: [
+                "stats", "--no-stream", "--format", "{{.CPUPerc}}\t{{.MemUsage}}"
+            ])
+            usage = Self.parseDockerStats(statsResult.output)
         }
 
         return ColimaAppState(
             colima: isRunning ? .running : .stopped,
             cpus: entry.cpus,
             memoryGB: memoryGB,
-            portainerExists: portainerExists
+            portainerExists: portainerExists,
+            usage: usage
         )
     }
 }
