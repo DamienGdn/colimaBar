@@ -12,6 +12,15 @@ public final class ProcessShellRunner: ShellRunner {
         process.executableURL = URL(fileURLWithPath: executable)
         process.arguments = args
 
+        // App bundles inherit minimal launchd PATH — inject Homebrew so sub-processes
+        // (e.g. `docker context create` called by colima) are found.
+        var env = ProcessInfo.processInfo.environment
+        let currentPath = env["PATH"] ?? ""
+        if !currentPath.contains("/opt/homebrew/bin") {
+            env["PATH"] = "/opt/homebrew/bin:/usr/local/bin:" + currentPath
+        }
+        process.environment = env
+
         let outPipe = Pipe()
         let errPipe = Pipe()
         process.standardOutput = outPipe
