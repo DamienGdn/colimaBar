@@ -1,0 +1,3 @@
+import ColimaBarCore
+
+print("ColimaBar")
