@@ -1,22 +1,12 @@
 # ColimaBar
 
-<p align="center">
-  <img src="docs/icon.png" width="128" alt="ColimaBar icon" />
-</p>
+![ColimaBar icon](docs/icon.png)
 
-<p align="center">
-  macOS menu bar app to manage <a href="https://github.com/abiosoft/colima">Colima</a> + <a href="https://www.portainer.io/">Portainer</a> — a lightweight Docker Desktop alternative.
-</p>
+macOS menu bar app to manage [Colima](https://github.com/abiosoft/colima) + [Portainer](https://www.portainer.io/) — a lightweight Docker Desktop alternative.
 
-<p align="center">
-  <img src="docs/screenshot.png" width="320" alt="ColimaBar menu screenshot" />
-</p>
+![Screenshot](docs/screenshot.png)
 
-<p align="center">
-  <img alt="macOS 13+" src="https://img.shields.io/badge/macOS-13%2B-blue" />
-  <img alt="Apple Silicon" src="https://img.shields.io/badge/Apple%20Silicon-M1%2FM2%2FM3-green" />
-  <img alt="Swift" src="https://img.shields.io/badge/Swift-5.9-orange" />
-</p>
+![macOS 13+](https://img.shields.io/badge/macOS-13%2B-blue) ![Apple Silicon](https://img.shields.io/badge/Apple%20Silicon-M1%2FM2%2FM3-green) ![Swift](https://img.shields.io/badge/Swift-5.9-orange)
 
 ---
 
@@ -82,12 +72,6 @@ make clean    # remove build artifacts
 
 ```bash
 swift run ColimaBarTests
-```
-
-## Rebuild after changes
-
-```bash
-make install && open /Applications/ColimaBar.app
 ```
 
 ## Reset Portainer credentials
