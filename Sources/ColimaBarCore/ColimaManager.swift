@@ -330,6 +330,38 @@ public final class ColimaManager {
         }
     }
 
+    public func fetchImages(completion: @escaping ([DockerImage]) -> Void) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            let result = self.shell.run(self.dockerPath, args: ["images", "--format", "{{json .}}"])
+            let images = result.exitCode == 0 ? Self.parseDockerImages(result.output) : []
+            DispatchQueue.main.async { completion(images) }
+        }
+    }
+
+    public func deleteImage(_ id: String, completion: @escaping (Result<Void, Error>) -> Void) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            let result = self.shell.run(self.dockerPath, args: ["rmi", id])
+            if result.exitCode == 0 {
+                DispatchQueue.main.async { completion(.success(())) }
+            } else {
+                let msg = result.error.isEmpty ? "docker rmi \(id) failed" : result.error
+                DispatchQueue.main.async { completion(.failure(ShellError(message: msg))) }
+            }
+        }
+    }
+
+    public func pullImage(_ name: String, completion: @escaping (Result<Void, Error>) -> Void) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            let result = self.shell.run(self.dockerPath, args: ["pull", name])
+            if result.exitCode == 0 {
+                DispatchQueue.main.async { completion(.success(())) }
+            } else {
+                let msg = result.error.isEmpty ? "docker pull \(name) failed" : result.error
+                DispatchQueue.main.async { completion(.failure(ShellError(message: msg))) }
+            }
+        }
+    }
+
     // MARK: - Private helpers
 
     private func waitForSocket() {
