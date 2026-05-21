@@ -13,7 +13,7 @@ bundle: build
 	mkdir -p $(APP)/Contents/Resources
 	cp .build/release/$(BINARY) $(APP)/Contents/MacOS/
 	cp Resources/Info.plist $(APP)/Contents/
-	cp Resources/colimabar.png Resources/colimabar@2x.png $(APP)/Contents/Resources/
+	cp Resources/colimabar.png "Resources/colimabar@2x.png" Resources/AppIcon.icns $(APP)/Contents/Resources/
 	codesign --force --sign - $(APP)
 	@echo "Bundle: $(APP)"
 
