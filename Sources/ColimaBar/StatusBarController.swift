@@ -30,8 +30,9 @@ final class StatusBarController {
     private var autoStartItem: NSMenuItem!
     private var isColimaRunning = false
     private var containersItem: NSMenuItem!
-    private var containersMenu: NSMenu!
     private var updateItem: NSMenuItem!
+    private var popover: NSPopover!
+    private var containersPanelVC: ContainersPanelViewController!
 
     init(manager: ColimaManager) {
         self.manager = manager
@@ -48,6 +49,39 @@ final class StatusBarController {
         buildMenu()
         statusItem.menu = menu
         updateIcon(colima: .unknown)
+        setupPopover()
+    }
+
+    private func setupPopover() {
+        containersPanelVC = ContainersPanelViewController()
+        popover = NSPopover()
+        popover.contentViewController = containersPanelVC
+        popover.behavior = .transient
+        popover.animates = true
+        popover.contentSize = NSSize(width: 440, height: 340)
+
+        containersPanelVC.onStart = { [weak self] name in
+            self?.manager.startContainer(name) { [weak self] result in
+                if case .failure(let e) = result { self?.showLastError(e.localizedDescription) }
+            }
+        }
+        containersPanelVC.onStop = { [weak self] name in
+            self?.manager.stopContainer(name) { [weak self] result in
+                if case .failure(let e) = result { self?.showLastError(e.localizedDescription) }
+            }
+        }
+        containersPanelVC.onRestart = { [weak self] name in
+            self?.manager.stopContainer(name) { [weak self] result in
+                guard let self else { return }
+                if case .failure(let e) = result { self.showLastError(e.localizedDescription); return }
+                self.manager.startContainer(name) { [weak self] result in
+                    if case .failure(let e) = result { self?.showLastError(e.localizedDescription) }
+                }
+            }
+        }
+        containersPanelVC.onLogs = { [weak self] name in
+            self?.openLogsTerminal(containerName: name)
+        }
     }
 
     private func buildMenu() {
@@ -118,9 +152,11 @@ final class StatusBarController {
 
         menu.addItem(NSMenuItem.separator())
 
-        containersMenu = NSMenu()
-        containersItem = NSMenuItem(title: L.t("Containers", "Containers"), action: nil, keyEquivalent: "")
-        containersItem.submenu = containersMenu
+        containersItem = NSMenuItem(
+            title: L.t("Containers", "Containers"),
+            action: #selector(openContainersPanel),
+            keyEquivalent: "")
+        containersItem.target = self
         containersItem.isHidden = true
         menu.addItem(containersItem)
 
@@ -337,84 +373,19 @@ final class StatusBarController {
             item.state = (profile.cpus == activeCPU && profile.memoryGB == activeMem) ? .on : .off
         }
 
-        updateContainersSubmenu(state.containers)
+        updateContainersItem(state.containers)
     }
 
-    private func updateContainersSubmenu(_ containers: [DockerContainer]) {
-        containersMenu.removeAllItems()
+    private func updateContainersItem(_ containers: [DockerContainer]) {
         guard !containers.isEmpty else {
             containersItem.isHidden = true
             return
         }
-
-        let runningCount = containers.filter { $0.isRunning }.count
-        containersItem.title = "\(runningCount)/\(containers.count) \(L.t("containers", "containers"))"
+        let running = containers.filter { $0.isRunning }.count
+        containersItem.title = "\(running)/\(containers.count) \(L.t("containers", "containers")) →"
         containersItem.isHidden = false
-
-        // Feature 4: filter toggle
-        let showAll = ColimaConfig.showAllContainers
-        let filterItem = NSMenuItem(
-            title: showAll ? L.t("Actifs seulement", "Running only") : L.t("Tous les containers", "All containers"),
-            action: #selector(toggleContainerFilter),
-            keyEquivalent: "")
-        filterItem.target = self
-        containersMenu.addItem(filterItem)
-        containersMenu.addItem(NSMenuItem.separator())
-
-        let displayed = showAll ? containers : containers.filter { $0.isRunning }
-
-        for container in displayed {
-            let stateIcon = container.isRunning ? "▶" : "■"
-            let row = NSMenuItem(
-                title: "\(stateIcon) \(container.name)",
-                action: nil, keyEquivalent: "")
-
-            let sub = NSMenu()
-
-            if container.isRunning {
-                let stopItem = NSMenuItem(
-                    title: L.t("Arrêter", "Stop"),
-                    action: #selector(stopContainerAction(_:)),
-                    keyEquivalent: "")
-                stopItem.representedObject = container.name
-                stopItem.target = self
-                sub.addItem(stopItem)
-
-                let restartItem = NSMenuItem(
-                    title: L.t("Redémarrer", "Restart"),
-                    action: #selector(restartContainerAction(_:)),
-                    keyEquivalent: "")
-                restartItem.representedObject = container.name
-                restartItem.target = self
-                sub.addItem(restartItem)
-            } else {
-                let startItem = NSMenuItem(
-                    title: L.t("Démarrer", "Start"),
-                    action: #selector(startContainerAction(_:)),
-                    keyEquivalent: "")
-                startItem.representedObject = container.name
-                startItem.target = self
-                sub.addItem(startItem)
-            }
-
-            let logsItem = NSMenuItem(
-                title: L.t("Voir les logs", "View logs"),
-                action: #selector(openContainerLogs(_:)),
-                keyEquivalent: "")
-            logsItem.representedObject = container.name
-            logsItem.target = self
-            sub.addItem(logsItem)
-
-            let copyItem = NSMenuItem(
-                title: L.t("Copier l'ID", "Copy ID"),
-                action: #selector(copyContainerID(_:)),
-                keyEquivalent: "")
-            copyItem.representedObject = container.id
-            copyItem.target = self
-            sub.addItem(copyItem)
-
-            row.submenu = sub
-            containersMenu.addItem(row)
+        if popover?.isShown == true {
+            containersPanelVC.update(containers: containers, usage: lastState.usage)
         }
     }
 
@@ -552,53 +523,17 @@ final class StatusBarController {
         })
     }
 
-    @objc private func startContainerAction(_ sender: NSMenuItem) {
-        guard let name = sender.representedObject as? String else { return }
-        manager.startContainer(name) { [weak self] result in
-            if case .failure(let error) = result {
-                self?.showLastError(error.localizedDescription)
-            }
+    @objc private func openContainersPanel() {
+        guard let button = statusItem.button else { return }
+        containersPanelVC.update(containers: lastState.containers, usage: lastState.usage)
+        if popover.isShown {
+            popover.close()
+        } else {
+            popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
         }
     }
 
-    @objc private func stopContainerAction(_ sender: NSMenuItem) {
-        guard let name = sender.representedObject as? String else { return }
-        manager.stopContainer(name) { [weak self] result in
-            if case .failure(let error) = result {
-                self?.showLastError(error.localizedDescription)
-            }
-        }
-    }
-
-    @objc private func restartContainerAction(_ sender: NSMenuItem) {
-        guard let name = sender.representedObject as? String else { return }
-        manager.stopContainer(name) { [weak self] result in
-            guard let self else { return }
-            if case .failure(let error) = result {
-                self.showLastError(error.localizedDescription)
-                return
-            }
-            self.manager.startContainer(name) { [weak self] result in
-                if case .failure(let error) = result {
-                    self?.showLastError(error.localizedDescription)
-                }
-            }
-        }
-    }
-
-    @objc private func copyContainerID(_ sender: NSMenuItem) {
-        guard let id = sender.representedObject as? String else { return }
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(id, forType: .string)
-    }
-
-    @objc private func toggleContainerFilter() {
-        ColimaConfig.showAllContainers = !ColimaConfig.showAllContainers
-        updateContainersSubmenu(lastState.containers)
-    }
-
-    @objc private func openContainerLogs(_ sender: NSMenuItem) {
-        guard let name = sender.representedObject as? String else { return }
+    private func openLogsTerminal(containerName name: String) {
         let script = "tell application \"Terminal\" to do script \"docker logs -f \(name)\""
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
