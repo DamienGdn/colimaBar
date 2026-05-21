@@ -15,21 +15,28 @@ macOS menu bar app to manage [Colima](https://github.com/abiosoft/colima) + [Por
 - **Start / Stop Colima** — stops automatically when you quit the app
 - **Adaptive polling** — 5 s refresh when running, 30 s when stopped
 - **Colored icon** — green bubble (running), orange (starting/stopping), white (stopped)
-- **Boot summary notification** — "Colima started in 12s — 5 container(s) running"
-- **Stop notification** — confirmation when Colima shuts down
+- **Lifecycle notifications** — Starting, Started (with duration + container count), Stopping, Stopped
+- **Crash notification** — alert when a container exits unexpectedly
 - **Last error in menu** — `⚠ error message` visible directly in menu, clears on next success
-- **Containers panel** — rich popover with table view (state, name, image, status columns), opens anchored to the menu bar icon
-- **Container actions** — Start / Stop / Restart / Logs buttons per selected container
-- **Container filter** — toggle All / Running only (segmented control, persisted)
+- **Containers panel** — rich NSPopover with table view: state, name, image, status, ports columns
+- **Container search** — filter containers by name in real time
+- **Container actions** — Start / Stop / Restart / Logs / Shell per selected container
+- **Shell into container** — opens `docker exec -it <name> sh` in Terminal
+- **Container filter** — toggle All / Running only (persisted)
+- **Per-container stats** — live CPU & RAM for the selected container
+- **Real-time CPU & RAM usage** — aggregate stats from all running containers
+- **Exposed ports** — host port numbers shown per container
 - **Copy container ID** — one click copies the full container ID to clipboard
-- **Quick logs** — click a container → Logs → Terminal opens with `docker logs -f`
-- **Real-time CPU & RAM usage** — live aggregate stats from all running containers
+- **Quick logs** — opens `docker logs -f` in Terminal
 - **Portainer integration** — auto-opens after Colima starts, installs if missing
+- **docker system prune** — `🗑 Prune Docker…` with confirmation dialog
+- **Settings popover** — replaces the Configuration submenu, includes all options
 - **Profiles** — Minimal (1 CPU / 2 GB), Dev (2 CPU / 4 GB), Heavy (4 CPU / 8 GB)
-- **CPU / Memory fine-tuning** — individual presets beyond profiles
+- **CPU / Memory / Disk fine-tuning** — individual presets in Settings
+- **Named Colima instances** — configure the active instance name (default, dev, prod…)
 - **Auto-start Colima** — optional: start Colima automatically when the app launches
 - **Colima update detection** — `🔄 Colima X.Y.Z update available` when brew has a newer version
-- **French / English** — follows system language, manual toggle in Configuration
+- **French / English** — follows system language, manual toggle in Settings
 - **Launch at login** — app only, Colima auto-start is a separate opt-in setting
 
 ## Requirements
@@ -63,19 +70,25 @@ open /Applications/ColimaBar.app
 | Start Colima | Click icon → ▶ Start Colima |
 | Stop Colima | Click icon → ■ Stop Colima |
 | View containers | Click icon → N/M containers → (opens panel) |
+| Search containers | Panel → search field |
 | Filter containers | Panel → All / Running toggle |
 | Start/stop a container | Panel → select container → Start or Stop |
 | Restart a container | Panel → select container → Restart |
-| Copy container ID | Panel → select container → Copy ID |
+| Shell into a container | Panel → select container → Shell |
 | View container logs | Panel → select container → Logs |
+| See per-container stats | Panel → select any running container |
+| Copy container ID | Panel → select container → Copy ID |
 | Open Portainer | Click icon → Open Portainer |
 | Install Portainer | Click icon → Install Portainer… (shown when missing) |
-| Apply a profile | Click icon → ⚙ Configuration → Profiles → Minimal / Dev / Heavy |
-| Change CPU/Memory | Click icon → ⚙ Configuration → CPUs or Memory |
-| Auto-start Colima | Click icon → ⚙ Configuration → Auto-start Colima on launch |
-| Change language | Click icon → ⚙ Configuration → Language |
+| Prune Docker | Click icon → 🗑 Prune Docker… (shown when running) |
+| Open Settings | Click icon → ⚙ Paramètres → |
+| Apply a profile | Settings → Profiles → Minimal / Dev / Heavy |
+| Change CPU / Memory / Disk | Settings → CPUs / Memory / Disk |
+| Set Colima instance name | Settings → Colima Instance |
+| Auto-start Colima | Settings → Auto-start Colima on launch |
+| Change language | Settings → Language |
+| Launch at login | Settings → Launch app at login |
 | Upgrade Colima | Click icon → 🔄 update item (shown when available) |
-| Launch at login | Click icon → Launch at login |
 
 Portainer runs at **https://localhost:9443** (accept self-signed certificate on first visit).
 
@@ -113,15 +126,16 @@ Sources/
 ├── ColimaBarCore/               # Pure Foundation library (testable)
 │   ├── ShellRunner.swift        # Process execution + Homebrew PATH injection
 │   ├── ColimaState.swift        # State model + ResourceUsage + DockerContainer
-│   ├── DockerContainer.swift    # Docker container model + JSON parser
-│   ├── ColimaManager.swift      # Polling, start/stop/install, container commands, update check
-│   ├── ColimaConfig.swift       # CPU/memory preferences + ColimaProfile presets
+│   ├── DockerContainer.swift    # Docker container model + ports parser
+│   ├── ColimaManager.swift      # Polling, start/stop/prune, container commands, update check
+│   ├── ColimaConfig.swift       # CPU/memory/disk/instance preferences + ColimaProfile presets
 │   └── Localization.swift       # FR/EN strings + language preference
 └── ColimaBar/                   # AppKit executable
     ├── main.swift               # NSApplication entry point
-    ├── AppDelegate.swift        # App lifecycle, SMAppService, notifications, update check trigger
-    ├── StatusBarController.swift # NSStatusItem, menu, icon tinting, containers, profiles
-    └── ContainersPanelViewController.swift # NSPopover panel with NSTableView for containers
+    ├── AppDelegate.swift        # App lifecycle, SMAppService, notifications
+    ├── StatusBarController.swift # NSStatusItem, menu, icon, crash detection
+    ├── ContainersPanelViewController.swift # Containers NSPopover (search, table, actions, stats)
+    └── SettingsPanelViewController.swift   # Settings NSPopover (profiles, resources, language)
 Tests/
 └── ColimaBarTests/              # Custom test runner (no Xcode required) — 49 tests
 Resources/
