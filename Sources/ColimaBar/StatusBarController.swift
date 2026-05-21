@@ -57,7 +57,7 @@ final class StatusBarController {
         popover.contentViewController = containersPanelVC
         popover.behavior = .transient
         popover.animates = true
-        popover.contentSize = NSSize(width: 900, height: 500)
+        popover.contentSize = NSSize(width: 900, height: 560)
 
         containersPanelVC.onStart = { [weak self] name in
             self?.manager.startContainer(name) { [weak self] result in
@@ -84,8 +84,20 @@ final class StatusBarController {
         containersPanelVC.onShell = { [weak self] name in
             self?.openShellTerminal(containerName: name)
         }
-        containersPanelVC.onFetchStats = { [weak self] name, completion in
-            self?.manager.fetchContainerStats(name: name, completion: completion)
+        containersPanelVC.onFetchImages = { [weak self] completion in
+            self?.manager.fetchImages(completion: completion)
+        }
+        containersPanelVC.onDeleteImage = { [weak self] id, completion in
+            self?.manager.deleteImage(id, completion: completion)
+        }
+        containersPanelVC.onPullImage = { [weak self] name, completion in
+            self?.manager.pullImage(name, completion: completion)
+        }
+        containersPanelVC.onFetchVolumes = { [weak self] completion in
+            self?.manager.fetchVolumes(completion: completion)
+        }
+        containersPanelVC.onPruneVolumes = { [weak self] completion in
+            self?.manager.pruneVolumes(completion: completion)
         }
     }
 
