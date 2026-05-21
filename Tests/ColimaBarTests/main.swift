@@ -28,6 +28,9 @@ test_health_nil_no_healthcheck()
 test_hostPortNumbers_single()
 test_hostPortNumbers_multiple()
 test_hostPortNumbers_empty()
+test_parseDockerImages_singleLine()
+test_parseDockerImages_multiLine()
+test_parseDockerImages_empty()
 
 print("\n\(_passed) passed, \(_failed) failed")
 if _failed > 0 {

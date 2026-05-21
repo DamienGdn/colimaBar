@@ -283,3 +283,34 @@ func test_hostPortNumbers_empty() {
     let c = DockerContainer(id: "x", name: "x", state: .running, status: "", image: "", ports: "")
     check(c.hostPortNumbers.isEmpty, "no ports → empty array")
 }
+
+// MARK: - parseDockerImages tests
+
+private let imageOneLine = """
+{"ID":"sha256:abc123","Repository":"nginx","Tag":"latest","Size":"142MB","CreatedSince":"3 weeks ago"}
+"""
+private let imageTwoLines = """
+{"ID":"sha256:abc123","Repository":"nginx","Tag":"latest","Size":"142MB","CreatedSince":"3 weeks ago"}
+{"ID":"sha256:def456","Repository":"postgres","Tag":"15","Size":"379MB","CreatedSince":"2 months ago"}
+"""
+
+func test_parseDockerImages_singleLine() {
+    let images = ColimaManager.parseDockerImages(imageOneLine)
+    check(images.count == 1, "1 image parsed")
+    checkEqual(images[0].repository, "nginx", "repository = nginx")
+    checkEqual(images[0].tag, "latest", "tag = latest")
+    checkEqual(images[0].size, "142MB", "size = 142MB")
+    checkEqual(images[0].created, "3 weeks ago", "created = 3 weeks ago")
+    checkEqual(images[0].id, "sha256:abc123", "id correct")
+}
+
+func test_parseDockerImages_multiLine() {
+    let images = ColimaManager.parseDockerImages(imageTwoLines)
+    check(images.count == 2, "2 images parsed")
+    checkEqual(images[1].repository, "postgres", "second repo = postgres")
+}
+
+func test_parseDockerImages_empty() {
+    check(ColimaManager.parseDockerImages("").isEmpty, "empty → empty array")
+    check(ColimaManager.parseDockerImages("not json").isEmpty, "invalid → empty array")
+}

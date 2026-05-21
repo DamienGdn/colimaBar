@@ -81,6 +81,19 @@ public final class ColimaManager {
         return result
     }
 
+    // Parses `docker images --format '{{json .}}'` NDJSON output.
+    public static func parseDockerImages(_ output: String) -> [DockerImage] {
+        output.components(separatedBy: .newlines)
+            .filter { !$0.isEmpty }
+            .compactMap { line in
+                guard let data = line.data(using: .utf8),
+                      let j = try? JSONDecoder().decode(DockerImageJSON.self, from: data)
+                else { return nil }
+                return DockerImage(id: j.ID, repository: j.Repository, tag: j.Tag,
+                                   size: j.Size, created: j.CreatedSince)
+            }
+    }
+
     // Parses `docker stats --no-stream --format "{{.CPUPerc}}\t{{.MemUsage}}"` output.
     public static func parseDockerStats(_ output: String) -> ResourceUsage? {
         var totalCPU = 0.0
