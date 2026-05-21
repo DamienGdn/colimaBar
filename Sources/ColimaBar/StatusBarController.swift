@@ -26,6 +26,7 @@ final class StatusBarController {
     private var cpuMenuItems: [NSMenuItem] = []
     private var memMenuItems: [NSMenuItem] = []
     private var langMenuItems: [AppLanguage: NSMenuItem] = [:]
+    private var profileMenuItems: [NSMenuItem] = []
     private var isColimaRunning = false
     private var containersItem: NSMenuItem!
     private var containersMenu: NSMenu!
@@ -51,6 +52,7 @@ final class StatusBarController {
         cpuMenuItems = []
         memMenuItems = []
         langMenuItems = [:]
+        profileMenuItems = []
         menu = NSMenu()
 
         // Status lines
@@ -174,6 +176,24 @@ final class StatusBarController {
             langMenuItems[lang] = item
         }
 
+        configMenu.addItem(NSMenuItem.separator())
+
+        let profileHeader = NSMenuItem(title: L.t("Profils", "Profiles"), action: nil, keyEquivalent: "")
+        profileHeader.isEnabled = false
+        configMenu.addItem(profileHeader)
+
+        for profile in ColimaProfile.presets {
+            let displayName = L.effective == .french ? profile.nameFR : profile.name
+            let item = NSMenuItem(
+                title: "\(displayName) — \(profile.cpus) CPU / \(profile.memoryGB) GB",
+                action: #selector(applyProfile(_:)),
+                keyEquivalent: "")
+            item.representedObject = profile.name
+            item.target = self
+            configMenu.addItem(item)
+            profileMenuItems.append(item)
+        }
+
         configItem.submenu = configMenu
         menu.addItem(configItem)
 
@@ -276,6 +296,14 @@ final class StatusBarController {
         let currentMem = state.memoryGB.map { Int($0.rounded()) } ?? ColimaConfig.desiredMemoryGB
         for item in cpuMenuItems { item.state = item.tag == currentCPU ? .on : .off }
         for item in memMenuItems { item.state = item.tag == currentMem ? .on : .off }
+
+        let activeCPU = state.cpus ?? ColimaConfig.desiredCPUs
+        let activeMem = state.memoryGB.map { Int($0.rounded()) } ?? ColimaConfig.desiredMemoryGB
+        for item in profileMenuItems {
+            guard let name = item.representedObject as? String,
+                  let profile = ColimaProfile.presets.first(where: { $0.name == name }) else { continue }
+            item.state = (profile.cpus == activeCPU && profile.memoryGB == activeMem) ? .on : .off
+        }
 
         updateContainersSubmenu(state.containers)
     }
@@ -484,5 +512,18 @@ final class StatusBarController {
         process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
         process.arguments = ["-e", script]
         try? process.run()
+    }
+
+    @objc private func applyProfile(_ sender: NSMenuItem) {
+        guard let name = sender.representedObject as? String,
+              let profile = ColimaProfile.presets.first(where: { $0.name == name }) else { return }
+        ColimaConfig.desiredCPUs = profile.cpus
+        ColimaConfig.desiredMemoryGB = profile.memoryGB
+        for item in cpuMenuItems { item.state = item.tag == profile.cpus ? .on : .off }
+        for item in memMenuItems { item.state = item.tag == profile.memoryGB ? .on : .off }
+        for item in profileMenuItems {
+            item.state = (item.representedObject as? String) == name ? .on : .off
+        }
+        if isColimaRunning { restartWithNewConfig() }
     }
 }
