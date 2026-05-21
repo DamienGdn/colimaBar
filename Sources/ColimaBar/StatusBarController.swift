@@ -11,6 +11,7 @@ final class StatusBarController {
     private var colimaStatusItem: NSMenuItem!
     private var resourcesItem: NSMenuItem!
     private var usageItem: NSMenuItem!
+    private var lastErrorItem: NSMenuItem!
 
     // Action items
     private var startItem: NSMenuItem!
@@ -64,6 +65,11 @@ final class StatusBarController {
         usageItem.isEnabled = false
         usageItem.isHidden = true
         menu.addItem(usageItem)
+
+        lastErrorItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+        lastErrorItem.isEnabled = false
+        lastErrorItem.isHidden = true
+        menu.addItem(lastErrorItem)
 
         menu.addItem(NSMenuItem.separator())
 
@@ -262,6 +268,15 @@ final class StatusBarController {
         for item in memMenuItems { item.state = item.tag == currentMem ? .on : .off }
     }
 
+    func showLastError(_ message: String) {
+        lastErrorItem.title = "⚠ \(message.prefix(80))"
+        lastErrorItem.isHidden = false
+    }
+
+    func clearLastError() {
+        lastErrorItem.isHidden = true
+    }
+
     // MARK: - Actions
 
     @objc private func startColima() {
@@ -273,6 +288,7 @@ final class StatusBarController {
             switch result {
             case .success(let state):
                 self.update(state: state)
+                self.clearLastError()
                 let duration = Int(state.startDuration ?? 0)
                 let running = state.containers.filter { $0.isRunning }.count
                 let msg = L.t(
@@ -285,6 +301,7 @@ final class StatusBarController {
                 }
             case .failure(let error):
                 appDelegate?.showError(error.localizedDescription)
+                self.showLastError(error.localizedDescription)
                 self.update(state: .unknown)
             }
         })
@@ -298,9 +315,11 @@ final class StatusBarController {
             switch result {
             case .success(let state):
                 self?.update(state: state)
+                self?.clearLastError()
                 appDelegate?.showSuccess(L.t("Colima arrêté", "Colima stopped"))
             case .failure(let error):
                 appDelegate?.showError(error.localizedDescription)
+                self?.showLastError(error.localizedDescription)
             }
         })
     }
@@ -315,7 +334,9 @@ final class StatusBarController {
             self?.installPortainerItem.isEnabled = true
             switch result {
             case .success: NSWorkspace.shared.open(URL(string: "https://localhost:9443")!)
-            case .failure(let error): (NSApp.delegate as? AppDelegate)?.showError(error.localizedDescription)
+            case .failure(let error):
+                (NSApp.delegate as? AppDelegate)?.showError(error.localizedDescription)
+                self?.showLastError(error.localizedDescription)
             }
         }
     }
