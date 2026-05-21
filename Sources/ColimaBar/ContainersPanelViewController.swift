@@ -330,7 +330,7 @@ extension ContainersPanelViewController: NSTableViewDataSource, NSTableViewDeleg
             }
         case "ram":
             if let s = containerStats[c.name], c.isRunning {
-                cell.textField?.stringValue = "\(s.memUsedFormatted) / \(String(format: "%.1f GB", s.memTotalGiB))"
+                cell.textField?.stringValue = "\(s.memUsedFormatted) / \(String(format: "%.1f GB", s.memTotalGiB)) (\(String(format: "%.0f%%", s.memUsedPercent)))"
                 cell.textField?.textColor   = .secondaryLabelColor
             } else {
                 cell.textField?.stringValue = c.isRunning ? "…" : "–"

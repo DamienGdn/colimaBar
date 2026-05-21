@@ -17,6 +17,10 @@ public struct ResourceUsage: Equatable {
             ? String(format: "%.1f GB", memUsedMiB / 1024)
             : String(format: "%.0f MB", memUsedMiB)
     }
+
+    public var memUsedPercent: Double {
+        memTotalGiB > 0 ? (memUsedMiB / (memTotalGiB * 1024)) * 100 : 0
+    }
 }
 
 public struct ColimaAppState: Equatable {
