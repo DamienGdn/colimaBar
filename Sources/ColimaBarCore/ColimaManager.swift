@@ -196,6 +196,54 @@ public final class ColimaManager {
         }
     }
 
+    public func startContainer(_ name: String, completion: @escaping (Result<Void, Error>) -> Void) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            let result = self.shell.run(self.dockerPath, args: ["start", name])
+            if result.exitCode == 0 {
+                DispatchQueue.main.async { completion(.success(())) }
+            } else {
+                let msg = result.error.isEmpty
+                    ? "\(L.t("Impossible de démarrer", "Failed to start")) \(name)"
+                    : result.error
+                DispatchQueue.main.async { completion(.failure(ShellError(message: msg))) }
+            }
+        }
+    }
+
+    public func stopContainer(_ name: String, completion: @escaping (Result<Void, Error>) -> Void) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            let result = self.shell.run(self.dockerPath, args: ["stop", name])
+            if result.exitCode == 0 {
+                DispatchQueue.main.async { completion(.success(())) }
+            } else {
+                let msg = result.error.isEmpty
+                    ? "\(L.t("Impossible d'arrêter", "Failed to stop")) \(name)"
+                    : result.error
+                DispatchQueue.main.async { completion(.failure(ShellError(message: msg))) }
+            }
+        }
+    }
+
+    // Checks brew outdated colima once. Returns new version string or nil if up to date.
+    public func checkForColimaUpdate(completion: @escaping (String?) -> Void) {
+        DispatchQueue.global(qos: .background).async {
+            let result = self.shell.run("/opt/homebrew/bin/brew", args: ["outdated", "colima", "--json"])
+            guard result.exitCode == 0, !result.output.isEmpty else {
+                DispatchQueue.main.async { completion(nil) }
+                return
+            }
+            struct BrewFormula: Codable { let name: String; let current_version: String }
+            struct BrewOutdated: Codable { let formulae: [BrewFormula] }
+            if let data = result.output.data(using: .utf8),
+               let outdated = try? JSONDecoder().decode(BrewOutdated.self, from: data),
+               let colima = outdated.formulae.first(where: { $0.name == "colima" }) {
+                DispatchQueue.main.async { completion(colima.current_version) }
+            } else {
+                DispatchQueue.main.async { completion(nil) }
+            }
+        }
+    }
+
     // Synchronous stop — called from applicationWillTerminate where async is not possible.
     public func stopColimaSync() {
         let state = fetchStateSync()
