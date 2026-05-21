@@ -166,6 +166,13 @@ public final class ColimaManager {
         }
     }
 
+    // Synchronous stop — called from applicationWillTerminate where async is not possible.
+    public func stopColimaSync() {
+        let state = fetchStateSync()
+        guard state.colima == .running else { return }
+        _ = shell.run(colimaPath, args: ["stop"])
+    }
+
     // MARK: - Private helpers
 
     private func waitForSocket() {

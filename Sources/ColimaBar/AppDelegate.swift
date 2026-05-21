@@ -16,6 +16,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         manager.stopPolling()
+        manager.stopColimaSync()
     }
 
     private func requestNotificationPermission() {
