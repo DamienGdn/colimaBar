@@ -22,10 +22,11 @@ final class ContainersPanelViewController: NSViewController {
     private var logsBtn:          NSButton!
     private var shellBtn:         NSButton!
 
-    private var allContainers: [DockerContainer] = []
-    private var displayed:     [DockerContainer] = []
-    private var usage:         ResourceUsage?
-    private var searchText     = ""
+    private var allContainers:  [DockerContainer] = []
+    private var displayed:      [DockerContainer] = []
+    private var usage:          ResourceUsage?
+    private var containerStats: [String: ResourceUsage] = [:]
+    private var searchText      = ""
 
     override func loadView() {
         view = NSView(frame: NSRect(x: 0, y: 0, width: 800, height: 500))
@@ -37,9 +38,10 @@ final class ContainersPanelViewController: NSViewController {
         applyFilter()
     }
 
-    func update(containers: [DockerContainer], usage: ResourceUsage?) {
-        allContainers = containers
-        self.usage    = usage
+    func update(containers: [DockerContainer], usage: ResourceUsage?, containerStats: [String: ResourceUsage] = [:]) {
+        allContainers       = containers
+        self.usage          = usage
+        self.containerStats = containerStats
         guard isViewLoaded else { return }
         applyFilter()
         refreshStats()
@@ -85,9 +87,11 @@ final class ContainersPanelViewController: NSViewController {
         for (id, title, width) in [
             ("state",  "",                              22.0),
             ("name",   L.t("Nom", "Name"),             160.0),
-            ("image",  L.t("Image", "Image"),          160.0),
-            ("status", L.t("Statut", "Status"),        100.0),
-            ("ports",  L.t("Ports", "Ports"),          130.0),
+            ("image",  L.t("Image", "Image"),          150.0),
+            ("status", L.t("Statut", "Status"),         90.0),
+            ("ports",  L.t("Ports", "Ports"),          100.0),
+            ("cpu",    "CPU %",                         65.0),
+            ("ram",    "RAM",                           90.0),
         ] as [(String, String, CGFloat)] {
             let col = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(id))
             col.title    = title
@@ -316,6 +320,22 @@ extension ContainersPanelViewController: NSTableViewDataSource, NSTableViewDeleg
             let p = c.hostPorts
             cell.textField?.stringValue = p
             cell.textField?.textColor   = p.isEmpty ? .tertiaryLabelColor : .secondaryLabelColor
+        case "cpu":
+            if let s = containerStats[c.name], c.isRunning {
+                cell.textField?.stringValue = String(format: "%.1f%%", s.cpuPercent)
+                cell.textField?.textColor   = s.cpuPercent > 80 ? .systemOrange : .secondaryLabelColor
+            } else {
+                cell.textField?.stringValue = c.isRunning ? "…" : "–"
+                cell.textField?.textColor   = .tertiaryLabelColor
+            }
+        case "ram":
+            if let s = containerStats[c.name], c.isRunning {
+                cell.textField?.stringValue = s.memUsedFormatted
+                cell.textField?.textColor   = .secondaryLabelColor
+            } else {
+                cell.textField?.stringValue = c.isRunning ? "…" : "–"
+                cell.textField?.textColor   = .tertiaryLabelColor
+            }
         default: break
         }
         return cell

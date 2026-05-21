@@ -25,6 +25,7 @@ public struct ColimaAppState: Equatable {
     public let memoryGB: Double?
     public let portainerExists: Bool
     public let usage: ResourceUsage?
+    public let containerStats: [String: ResourceUsage]
     public let containers: [DockerContainer]
     public let startDuration: TimeInterval?
 
@@ -34,6 +35,7 @@ public struct ColimaAppState: Equatable {
         memoryGB: Double? = nil,
         portainerExists: Bool = false,
         usage: ResourceUsage? = nil,
+        containerStats: [String: ResourceUsage] = [:],
         containers: [DockerContainer] = [],
         startDuration: TimeInterval? = nil
     ) {
@@ -42,6 +44,7 @@ public struct ColimaAppState: Equatable {
         self.memoryGB = memoryGB
         self.portainerExists = portainerExists
         self.usage = usage
+        self.containerStats = containerStats
         self.containers = containers
         self.startDuration = startDuration
     }

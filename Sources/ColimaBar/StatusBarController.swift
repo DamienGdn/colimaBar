@@ -326,7 +326,7 @@ final class StatusBarController {
         containersItem.title = "\(running)/\(containers.count) \(L.t("containers", "containers")) →"
         containersItem.isHidden = false
         if popover?.isShown == true {
-            containersPanelVC.update(containers: containers, usage: lastState.usage)
+            containersPanelVC.update(containers: containers, usage: lastState.usage, containerStats: lastState.containerStats)
         }
     }
 
@@ -482,7 +482,7 @@ final class StatusBarController {
 
     @objc private func openContainersPanel() {
         guard let button = statusItem.button else { return }
-        containersPanelVC.update(containers: lastState.containers, usage: lastState.usage)
+        containersPanelVC.update(containers: lastState.containers, usage: lastState.usage, containerStats: lastState.containerStats)
         if popover.isShown {
             popover.close()
         } else {

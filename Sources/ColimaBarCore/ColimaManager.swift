@@ -59,6 +59,25 @@ public final class ColimaManager {
             }
     }
 
+    // Parses `docker stats --no-stream --format "{{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}"` → per-container dict.
+    public static func parseContainerStats(_ output: String) -> [String: ResourceUsage] {
+        var result: [String: ResourceUsage] = [:]
+        for line in output.components(separatedBy: .newlines).filter({ !$0.isEmpty }) {
+            let parts = line.components(separatedBy: "\t")
+            guard parts.count >= 3 else { continue }
+            let name   = parts[0].trimmingCharacters(in: .whitespaces)
+            let cpuStr = parts[1].trimmingCharacters(in: .whitespaces).replacingOccurrences(of: "%", with: "")
+            guard let cpu = Double(cpuStr) else { continue }
+            let memParts = parts[2].trimmingCharacters(in: .whitespaces).components(separatedBy: " / ")
+            guard memParts.count >= 2 else { continue }
+            let used  = parseSizeMiB(memParts[0].trimmingCharacters(in: .whitespaces))
+            let total = parseSizeGiB(memParts[1].trimmingCharacters(in: .whitespaces))
+            guard total > 0 else { continue }
+            result[name] = ResourceUsage(cpuPercent: cpu, memUsedMiB: used, memTotalGiB: total)
+        }
+        return result
+    }
+
     // Parses `docker stats --no-stream --format "{{.CPUPerc}}\t{{.MemUsage}}"` output.
     public static func parseDockerStats(_ output: String) -> ResourceUsage? {
         var totalCPU = 0.0
@@ -330,6 +349,7 @@ public final class ColimaManager {
 
         var portainerExists = false
         var usage: ResourceUsage? = nil
+        var containerStats: [String: ResourceUsage] = [:]
         var containers: [DockerContainer] = []
         if isRunning {
             let r = shell.run(dockerPath, args: [
@@ -340,9 +360,16 @@ public final class ColimaManager {
             portainerExists = Self.portainerExistsInOutput(r.output)
 
             let statsResult = shell.run(dockerPath, args: [
-                "stats", "--no-stream", "--format", "{{.CPUPerc}}\t{{.MemUsage}}"
+                "stats", "--no-stream", "--format", "{{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}"
             ])
-            usage = Self.parseDockerStats(statsResult.output)
+            let perContainer = Self.parseContainerStats(statsResult.output)
+            containerStats = perContainer
+            if !perContainer.isEmpty {
+                let totalCPU    = perContainer.values.reduce(0) { $0 + $1.cpuPercent }
+                let totalMemMiB = perContainer.values.reduce(0) { $0 + $1.memUsedMiB }
+                let limitGiB    = perContainer.values.first?.memTotalGiB ?? 0
+                usage = ResourceUsage(cpuPercent: totalCPU, memUsedMiB: totalMemMiB, memTotalGiB: limitGiB)
+            }
 
             let containerResult = shell.run(dockerPath, args: ["ps", "-a", "--format", "{{json .}}"])
             containers = Self.parseDockerContainers(containerResult.output)
@@ -354,6 +381,7 @@ public final class ColimaManager {
             memoryGB: memoryGB,
             portainerExists: portainerExists,
             usage: usage,
+            containerStats: containerStats,
             containers: containers
         )
     }
