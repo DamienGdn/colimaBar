@@ -12,6 +12,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         manager = ColimaManager()
         statusBarController = StatusBarController(manager: manager)
         manager.startPolling()
+        manager.checkForColimaUpdate { [weak self] newVersion in
+            guard let version = newVersion else { return }
+            self?.statusBarController.showUpdateAvailable(version: version)
+        }
     }
 
     func applicationWillTerminate(_ notification: Notification) {

@@ -30,6 +30,7 @@ final class StatusBarController {
     private var isColimaRunning = false
     private var containersItem: NSMenuItem!
     private var containersMenu: NSMenu!
+    private var updateItem: NSMenuItem!
 
     init(manager: ColimaManager) {
         self.manager = manager
@@ -121,6 +122,11 @@ final class StatusBarController {
         containersItem.submenu = containersMenu
         containersItem.isHidden = true
         menu.addItem(containersItem)
+
+        updateItem = NSMenuItem(title: "", action: #selector(upgradeColima), keyEquivalent: "")
+        updateItem.target = self
+        updateItem.isHidden = true
+        menu.addItem(updateItem)
 
         menu.addItem(NSMenuItem.separator())
 
@@ -525,5 +531,20 @@ final class StatusBarController {
             item.state = (item.representedObject as? String) == name ? .on : .off
         }
         if isColimaRunning { restartWithNewConfig() }
+    }
+
+    func showUpdateAvailable(version: String) {
+        updateItem.title = L.t(
+            "🔄 Mise à jour Colima \(version) disponible",
+            "🔄 Colima \(version) update available")
+        updateItem.isHidden = false
+    }
+
+    @objc private func upgradeColima() {
+        let script = "tell application \"Terminal\" to do script \"brew upgrade colima\""
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+        process.arguments = ["-e", script]
+        try? process.run()
     }
 }
