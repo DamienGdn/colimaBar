@@ -5,7 +5,7 @@ import ColimaBarCore
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var manager: ColimaManager!
-    private var statusBarController: StatusBarController!
+    var statusBarController: StatusBarController!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         requestNotificationPermission()
@@ -32,6 +32,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             content: content,
             trigger: nil
         )
+        UNUserNotificationCenter.current().add(request)
+    }
+
+    func showSuccess(_ message: String) {
+        let content = UNMutableNotificationContent()
+        content.title = "ColimaBar"
+        content.body = message
+        content.sound = .default
+        let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
         UNUserNotificationCenter.current().add(request)
     }
 

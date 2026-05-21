@@ -268,15 +268,24 @@ final class StatusBarController {
         manager.startColima(onTransition: { [weak self] state in
             self?.update(state: state)
         }, completion: { [weak self] result in
+            guard let self else { return }
+            let appDelegate = NSApp.delegate as? AppDelegate
             switch result {
             case .success(let state):
-                self?.update(state: state)
+                self.update(state: state)
+                let duration = Int(state.startDuration ?? 0)
+                let running = state.containers.filter { $0.isRunning }.count
+                let msg = L.t(
+                    "Colima démarré en \(duration)s — \(running) container(s) actif(s)",
+                    "Colima started in \(duration)s — \(running) container(s) running"
+                )
+                appDelegate?.showSuccess(msg)
                 if state.portainerExists {
                     NSWorkspace.shared.open(URL(string: "https://localhost:9443")!)
                 }
             case .failure(let error):
-                (NSApp.delegate as? AppDelegate)?.showError(error.localizedDescription)
-                self?.update(state: .unknown)
+                appDelegate?.showError(error.localizedDescription)
+                self.update(state: .unknown)
             }
         })
     }
@@ -285,9 +294,13 @@ final class StatusBarController {
         manager.stopColima(onTransition: { [weak self] state in
             self?.update(state: state)
         }, completion: { [weak self] result in
+            let appDelegate = NSApp.delegate as? AppDelegate
             switch result {
-            case .success(let state): self?.update(state: state)
-            case .failure(let error): (NSApp.delegate as? AppDelegate)?.showError(error.localizedDescription)
+            case .success(let state):
+                self?.update(state: state)
+                appDelegate?.showSuccess(L.t("Colima arrêté", "Colima stopped"))
+            case .failure(let error):
+                appDelegate?.showError(error.localizedDescription)
             }
         })
     }
