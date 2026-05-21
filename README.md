@@ -1,16 +1,33 @@
 # ColimaBar
 
-macOS menu bar app to manage [Colima](https://github.com/abiosoft/colima) + [Portainer](https://www.portainer.io/) — a lightweight Docker Desktop alternative.
+<p align="center">
+  <img src="docs/icon.png" width="128" alt="ColimaBar icon" />
+</p>
 
-![macOS 13+](https://img.shields.io/badge/macOS-13%2B-blue) ![Apple Silicon](https://img.shields.io/badge/Apple%20Silicon-M1%2FM2%2FM3-green)
+<p align="center">
+  macOS menu bar app to manage <a href="https://github.com/abiosoft/colima">Colima</a> + <a href="https://www.portainer.io/">Portainer</a> — a lightweight Docker Desktop alternative.
+</p>
+
+<p align="center">
+  <img src="docs/screenshot.png" width="320" alt="ColimaBar menu screenshot" />
+</p>
+
+<p align="center">
+  <img alt="macOS 13+" src="https://img.shields.io/badge/macOS-13%2B-blue" />
+  <img alt="Apple Silicon" src="https://img.shields.io/badge/Apple%20Silicon-M1%2FM2%2FM3-green" />
+  <img alt="Swift" src="https://img.shields.io/badge/Swift-5.9-orange" />
+</p>
+
+---
 
 ## Features
 
-- **Start / Stop Colima** from the menu bar
+- **Start / Stop Colima** from the menu bar — stops automatically when you quit the app
 - **Colored icon** — green (running), yellow (starting/stopping), grey (stopped)
-- **CPU & Memory display** — shows allocated resources
+- **Real-time CPU & RAM usage** — live stats from all running containers
 - **Portainer integration** — auto-opens after Colima starts, installs Portainer if missing
 - **CPU / Memory configuration** — presets submenu, restarts Colima with new values
+- **French / English** — follows system language, manual toggle in Configuration
 - **Launch at login** — toggle from the menu (app only, Colima starts manually)
 - **Error notifications** — system alerts on failures
 
@@ -42,12 +59,13 @@ open /Applications/ColimaBar.app
 
 | Action | How |
 |--------|-----|
-| Start Colima | Click icon → ▶ Démarrer Colima |
-| Stop Colima | Click icon → ■ Arrêter Colima |
-| Open Portainer | Click icon → Ouvrir Portainer |
-| Install Portainer | Click icon → Installer Portainer… (shown when missing) |
+| Start Colima | Click icon → ▶ Start Colima |
+| Stop Colima | Click icon → ■ Stop Colima |
+| Open Portainer | Click icon → Open Portainer |
+| Install Portainer | Click icon → Install Portainer… (shown when missing) |
 | Change CPU/Memory | Click icon → ⚙ Configuration → pick preset |
-| Launch at login | Click icon → Lancer au démarrage |
+| Change language | Click icon → ⚙ Configuration → Language |
+| Launch at login | Click icon → Launch at login |
 
 Portainer runs at **https://localhost:9443** (accept self-signed certificate on first visit).
 
@@ -74,8 +92,6 @@ make install && open /Applications/ColimaBar.app
 
 ## Reset Portainer credentials
 
-If you lose your Portainer admin password:
-
 ```bash
 docker rm portainer
 docker volume rm portainer_data
@@ -90,15 +106,21 @@ Open https://localhost:9443 to create a new admin account.
 
 ```
 Sources/
-├── ColimaBarCore/     # Pure Foundation library (testable)
-│   ├── ShellRunner.swift    # Process execution abstraction
-│   ├── ColimaState.swift    # State model
-│   ├── ColimaManager.swift  # Polling, start/stop/install actions
-│   └── ColimaConfig.swift   # CPU/memory preferences (UserDefaults)
-└── ColimaBar/         # AppKit executable
-    ├── main.swift           # NSApplication entry point
-    ├── AppDelegate.swift    # App lifecycle, SMAppService, notifications
-    └── StatusBarController.swift  # NSStatusItem, menu, icon
+├── ColimaBarCore/          # Pure Foundation library (testable)
+│   ├── ShellRunner.swift        # Process execution + Homebrew PATH injection
+│   ├── ColimaState.swift        # State model + ResourceUsage
+│   ├── ColimaManager.swift      # Polling, start/stop/install actions
+│   ├── ColimaConfig.swift       # CPU/memory preferences (UserDefaults)
+│   └── Localization.swift       # FR/EN strings + language preference
+└── ColimaBar/              # AppKit executable
+    ├── main.swift               # NSApplication entry point
+    ├── AppDelegate.swift        # App lifecycle, SMAppService, notifications
+    └── StatusBarController.swift # NSStatusItem, menu, icon tinting
 Tests/
-└── ColimaBarTests/    # Custom test runner (no Xcode required)
+└── ColimaBarTests/         # Custom test runner (no Xcode required)
+Resources/
+├── Info.plist              # LSUIElement=true, bundle metadata
+├── AppIcon.icns            # App icon (all sizes)
+├── colimabar.png           # Menu bar icon @1x
+└── colimabar@2x.png        # Menu bar icon @2x
 ```
