@@ -228,23 +228,38 @@ final class StatusBarController {
 
     private func updateIcon(colima: ColimaRunningState) {
         guard let button = statusItem.button else { return }
-        let color: NSColor
+        let bubbleColor: NSColor
         switch colima {
-        case .running:             color = .systemGreen
-        case .stopped, .unknown:   color = .labelColor
-        case .transitioning:       color = .systemYellow
+        case .running:             bubbleColor = .systemGreen
+        case .stopped, .unknown:   bubbleColor = .white
+        case .transitioning:       bubbleColor = .systemOrange
         }
-        button.image = colimaIcon(tinted: color)
+        button.image = colimaIcon(bubbleColor: bubbleColor)
     }
 
-    private func colimaIcon(tinted color: NSColor) -> NSImage {
+    private func colimaIcon(bubbleColor: NSColor) -> NSImage {
         let base = NSImage(named: "colimabar")
             ?? NSImage(systemSymbolName: "shippingbox.fill", accessibilityDescription: "ColimaBar")!
-        let size = base.size
+        let size = NSSize(width: 22, height: 22)
         let result = NSImage(size: size, flipped: false) { rect in
-            base.draw(in: rect)
-            color.set()
-            rect.fill(using: .sourceAtop)
+            // Llama in neutral labelColor (adapts dark/light menu bar)
+            let llamaRect = rect
+            base.draw(in: llamaRect)
+            NSColor.labelColor.set()
+            llamaRect.fill(using: .sourceAtop)
+
+            // Status bubble — bottom-right corner
+            let d: CGFloat = 7
+            let bubble = NSRect(x: rect.width - d - 1, y: 1, width: d, height: d)
+
+            // White border for contrast on any background
+            NSColor.white.set()
+            NSBezierPath(ovalIn: bubble.insetBy(dx: -1.5, dy: -1.5)).fill()
+
+            // Colored fill
+            bubbleColor.set()
+            NSBezierPath(ovalIn: bubble).fill()
+
             return true
         }
         result.isTemplate = false
