@@ -342,6 +342,7 @@ final class StatusBarController {
     // MARK: - Actions
 
     @objc private func startColima() {
+        (NSApp.delegate as? AppDelegate)?.showSuccess(L.t("Démarrage de Colima…", "Starting Colima…"))
         manager.startColima(onTransition: { [weak self] state in
             self?.update(state: state)
         }, completion: { [weak self] result in
@@ -370,6 +371,7 @@ final class StatusBarController {
     }
 
     @objc private func stopColima() {
+        (NSApp.delegate as? AppDelegate)?.showSuccess(L.t("Arrêt de Colima…", "Stopping Colima…"))
         manager.stopColima(onTransition: { [weak self] state in
             self?.update(state: state)
         }, completion: { [weak self] result in
