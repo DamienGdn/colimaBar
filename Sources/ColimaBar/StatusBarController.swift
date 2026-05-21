@@ -297,8 +297,8 @@ final class StatusBarController {
         }
 
         if let u = state.usage {
-            usageItem.title = String(format: "   CPU: %.1f%%  |  RAM: %@ / %.1f GB",
-                                     u.cpuPercent, u.memUsedFormatted, u.memTotalGiB)
+            usageItem.title = String(format: "   CPU: %.1f%%  |  RAM: %@ / %.1f GB (%.0f%%)",
+                                     u.cpuPercent, u.memUsedFormatted, u.memTotalGiB, u.memUsedPercent)
             usageItem.isHidden = false
         } else {
             usageItem.isHidden = true
