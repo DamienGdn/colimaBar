@@ -58,7 +58,7 @@ final class StatusBarController {
         popover.contentViewController = containersPanelVC
         popover.behavior = .transient
         popover.animates = true
-        popover.contentSize = NSSize(width: 600, height: 340)
+        popover.contentSize = NSSize(width: 600, height: 500)
 
         containersPanelVC.onStart = { [weak self] name in
             self?.manager.startContainer(name) { [weak self] result in

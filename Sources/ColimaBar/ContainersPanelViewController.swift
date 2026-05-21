@@ -22,7 +22,7 @@ final class ContainersPanelViewController: NSViewController {
     private var usage:         ResourceUsage?
 
     override func loadView() {
-        view = NSView(frame: NSRect(x: 0, y: 0, width: 600, height: 340))
+        view = NSView(frame: NSRect(x: 0, y: 0, width: 600, height: 500))
     }
 
     override func viewDidLoad() {
