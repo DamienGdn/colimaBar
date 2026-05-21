@@ -91,7 +91,7 @@ final class ContainersPanelViewController: NSViewController {
             ("status", L.t("Statut", "Status"),         90.0),
             ("ports",  L.t("Ports", "Ports"),          100.0),
             ("cpu",    "CPU %",                         65.0),
-            ("ram",    "RAM",                           90.0),
+            ("ram",    "RAM",                          130.0),
         ] as [(String, String, CGFloat)] {
             let col = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(id))
             col.title    = title
@@ -330,7 +330,7 @@ extension ContainersPanelViewController: NSTableViewDataSource, NSTableViewDeleg
             }
         case "ram":
             if let s = containerStats[c.name], c.isRunning {
-                cell.textField?.stringValue = s.memUsedFormatted
+                cell.textField?.stringValue = "\(s.memUsedFormatted) / \(String(format: "%.1f GB", s.memTotalGiB))"
                 cell.textField?.textColor   = .secondaryLabelColor
             } else {
                 cell.textField?.stringValue = c.isRunning ? "…" : "–"
