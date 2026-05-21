@@ -23,3 +23,16 @@ public struct ColimaConfig {
         set { UserDefaults.standard.set(newValue, forKey: memKey) }
     }
 }
+
+public struct ColimaProfile: Equatable {
+    public let name: String
+    public let nameFR: String
+    public let cpus: Int
+    public let memoryGB: Int
+
+    public static let presets: [ColimaProfile] = [
+        ColimaProfile(name: "Minimal", nameFR: "Minimal", cpus: 1, memoryGB: 2),
+        ColimaProfile(name: "Dev",     nameFR: "Dev",     cpus: 2, memoryGB: 4),
+        ColimaProfile(name: "Heavy",   nameFR: "Intense", cpus: 4, memoryGB: 8),
+    ]
+}

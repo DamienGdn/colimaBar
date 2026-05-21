@@ -19,6 +19,8 @@ test_parseDockerContainers_exited()
 test_parseDockerContainers_empty()
 test_fetchStateSync_running_includesContainers()
 test_fetchStateSync_stopped_noContainers()
+test_colimaProfiles_presets()
+test_colimaProfiles_activeMatch()
 
 print("\n\(_passed) passed, \(_failed) failed")
 if _failed > 0 {

@@ -216,3 +216,25 @@ func test_fetchStateSync_stopped_noContainers() {
     let state = manager.fetchStateSync()
     check(state.containers.isEmpty, "stopped → no containers")
 }
+
+// MARK: - ColimaProfile tests
+
+func test_colimaProfiles_presets() {
+    check(ColimaProfile.presets.count == 3, "3 presets")
+    check(ColimaProfile.presets[0].name == "Minimal", "first = Minimal")
+    check(ColimaProfile.presets[1].cpus == 2, "Dev = 2 CPUs")
+    check(ColimaProfile.presets[2].memoryGB == 8, "Heavy = 8 GB")
+}
+
+func test_colimaProfiles_activeMatch() {
+    UserDefaults.standard.removeObject(forKey: "colima.desiredCPUs")
+    UserDefaults.standard.removeObject(forKey: "colima.desiredMemoryGB")
+    ColimaConfig.desiredCPUs = 2
+    ColimaConfig.desiredMemoryGB = 4
+    let active = ColimaProfile.presets.first {
+        $0.cpus == ColimaConfig.desiredCPUs && $0.memoryGB == ColimaConfig.desiredMemoryGB
+    }
+    check(active?.name == "Dev", "active profile = Dev when 2CPU/4GB")
+    UserDefaults.standard.removeObject(forKey: "colima.desiredCPUs")
+    UserDefaults.standard.removeObject(forKey: "colima.desiredMemoryGB")
+}
