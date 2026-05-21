@@ -189,7 +189,7 @@ final class StatusBarController {
         let color: NSColor
         switch colima {
         case .running:             color = .systemGreen
-        case .stopped, .unknown:   color = .secondaryLabelColor
+        case .stopped, .unknown:   color = .white
         case .transitioning:       color = .systemYellow
         }
         button.image = colimaIcon(tinted: color)
