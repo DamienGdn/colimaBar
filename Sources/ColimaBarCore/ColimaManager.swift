@@ -392,6 +392,27 @@ public final class ColimaManager {
         }
     }
 
+    public func fetchVolumes(completion: @escaping ([DockerVolume]) -> Void) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            let lsResult = self.shell.run(self.dockerPath, args: ["volume", "ls", "--format", "{{json .}}"])
+            let dfResult = self.shell.run(self.dockerPath, args: ["system", "df", "-v"])
+            let volumes = Self.parseDockerVolumes(lsResult.output, dfResult.output)
+            DispatchQueue.main.async { completion(volumes) }
+        }
+    }
+
+    public func pruneVolumes(completion: @escaping (Result<String, Error>) -> Void) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            let result = self.shell.run(self.dockerPath, args: ["volume", "prune", "-f"])
+            if result.exitCode == 0 {
+                DispatchQueue.main.async { completion(.success(result.output)) }
+            } else {
+                let msg = result.error.isEmpty ? "docker volume prune failed" : result.error
+                DispatchQueue.main.async { completion(.failure(ShellError(message: msg))) }
+            }
+        }
+    }
+
     // MARK: - Private helpers
 
     private func waitForSocket() {
