@@ -22,17 +22,15 @@ final class StatusBarController {
     private var loginItem: NSMenuItem!
     private var quitItem: NSMenuItem!
 
-    // Config submenu
-    private var cpuMenuItems: [NSMenuItem] = []
-    private var memMenuItems: [NSMenuItem] = []
-    private var langMenuItems: [AppLanguage: NSMenuItem] = [:]
-    private var profileMenuItems: [NSMenuItem] = []
-    private var autoStartItem: NSMenuItem!
     private var isColimaRunning = false
     private var containersItem: NSMenuItem!
+    private var pruneItem: NSMenuItem!
     private var updateItem: NSMenuItem!
     private var popover: NSPopover!
     private var containersPanelVC: ContainersPanelViewController!
+    private var settingsPopover: NSPopover!
+    private var settingsPanelVC: SettingsPanelViewController!
+    private var previousContainerStates: [String: DockerContainer.ContainerState] = [:]
 
     init(manager: ColimaManager) {
         self.manager = manager
@@ -49,10 +47,11 @@ final class StatusBarController {
         buildMenu()
         statusItem.menu = menu
         updateIcon(colima: .unknown)
-        setupPopover()
+        setupContainersPopover()
+        setupSettingsPopover()
     }
 
-    private func setupPopover() {
+    private func setupContainersPopover() {
         containersPanelVC = ContainersPanelViewController()
         popover = NSPopover()
         popover.contentViewController = containersPanelVC
@@ -82,13 +81,42 @@ final class StatusBarController {
         containersPanelVC.onLogs = { [weak self] name in
             self?.openLogsTerminal(containerName: name)
         }
+        containersPanelVC.onShell = { [weak self] name in
+            self?.openShellTerminal(containerName: name)
+        }
+        containersPanelVC.onFetchStats = { [weak self] name, completion in
+            self?.manager.fetchContainerStats(name: name, completion: completion)
+        }
+    }
+
+    private func setupSettingsPopover() {
+        settingsPanelVC = SettingsPanelViewController()
+        settingsPanelVC.isColimaRunning    = isColimaRunning
+        settingsPanelVC.isLoginItemEnabled = (NSApp.delegate as? AppDelegate)?.isLoginItemEnabled() ?? false
+        settingsPopover = NSPopover()
+        settingsPopover.contentViewController = settingsPanelVC
+        settingsPopover.behavior = .transient
+        settingsPopover.animates = true
+        settingsPopover.contentSize = NSSize(width: 420, height: 420)
+
+        settingsPanelVC.onApplyConfig = { [weak self] in self?.restartWithNewConfig() }
+        settingsPanelVC.onToggleLoginItem = { [weak self] in
+            (NSApp.delegate as? AppDelegate)?.toggleLoginItem()
+            if let enabled = (NSApp.delegate as? AppDelegate)?.isLoginItemEnabled() {
+                self?.settingsPanelVC.isLoginItemEnabled = enabled
+            }
+        }
+        settingsPanelVC.onSetLanguage = { [weak self] _ in
+            guard let self else { return }
+            let state = self.lastState
+            self.buildMenu()
+            self.statusItem.menu = self.menu
+            self.update(state: state)
+            self.setupSettingsPopover()   // rebuild with new language
+        }
     }
 
     private func buildMenu() {
-        cpuMenuItems = []
-        memMenuItems = []
-        langMenuItems = [:]
-        profileMenuItems = []
         menu = NSMenu()
 
         // Status lines
@@ -160,6 +188,14 @@ final class StatusBarController {
         containersItem.isHidden = true
         menu.addItem(containersItem)
 
+        pruneItem = NSMenuItem(
+            title: L.t("🗑 Vider Docker…", "🗑 Prune Docker…"),
+            action: #selector(pruneDocker),
+            keyEquivalent: "")
+        pruneItem.target = self
+        pruneItem.isHidden = true
+        menu.addItem(pruneItem)
+
         updateItem = NSMenuItem(title: "", action: #selector(upgradeColima), keyEquivalent: "")
         updateItem.target = self
         updateItem.isHidden = true
@@ -167,95 +203,12 @@ final class StatusBarController {
 
         menu.addItem(NSMenuItem.separator())
 
-        // ⚙ Configuration submenu
-        let configItem = NSMenuItem(title: "⚙ \(L.t("Configuration", "Configuration"))", action: nil, keyEquivalent: "")
-        let configMenu = NSMenu()
-
-        let cpuHeader = NSMenuItem(title: "CPUs", action: nil, keyEquivalent: "")
-        cpuHeader.isEnabled = false
-        configMenu.addItem(cpuHeader)
-
-        for cpu in ColimaConfig.cpuOptions {
-            let item = NSMenuItem(
-                title: "\(cpu) CPU\(cpu > 1 ? "s" : "")",
-                action: #selector(setCPU(_:)), keyEquivalent: "")
-            item.tag = cpu
-            item.target = self
-            configMenu.addItem(item)
-            cpuMenuItems.append(item)
-        }
-
-        configMenu.addItem(NSMenuItem.separator())
-
-        let memHeader = NSMenuItem(title: L.t("Mémoire", "Memory"), action: nil, keyEquivalent: "")
-        memHeader.isEnabled = false
-        configMenu.addItem(memHeader)
-
-        for gb in ColimaConfig.memoryOptions {
-            let item = NSMenuItem(title: "\(gb) GB", action: #selector(setMemory(_:)), keyEquivalent: "")
-            item.tag = gb
-            item.target = self
-            configMenu.addItem(item)
-            memMenuItems.append(item)
-        }
-
-        configMenu.addItem(NSMenuItem.separator())
-
-        let langHeader = NSMenuItem(title: L.t("Langue", "Language"), action: nil, keyEquivalent: "")
-        langHeader.isEnabled = false
-        configMenu.addItem(langHeader)
-
-        let langOptions: [(AppLanguage, String)] = [
-            (.system,  L.t("Système (auto)", "System (auto)")),
-            (.french,  "Français"),
-            (.english, "English"),
-        ]
-        for (lang, title) in langOptions {
-            let item = NSMenuItem(title: title, action: #selector(setLanguage(_:)), keyEquivalent: "")
-            item.representedObject = lang.rawValue
-            item.state = L.current == lang ? .on : .off
-            item.target = self
-            configMenu.addItem(item)
-            langMenuItems[lang] = item
-        }
-
-        configMenu.addItem(NSMenuItem.separator())
-
-        let profileHeader = NSMenuItem(title: L.t("Profils", "Profiles"), action: nil, keyEquivalent: "")
-        profileHeader.isEnabled = false
-        configMenu.addItem(profileHeader)
-
-        for profile in ColimaProfile.presets {
-            let displayName = L.effective == .french ? profile.nameFR : profile.name
-            let item = NSMenuItem(
-                title: "\(displayName) — \(profile.cpus) CPU / \(profile.memoryGB) GB",
-                action: #selector(applyProfile(_:)),
-                keyEquivalent: "")
-            item.representedObject = profile.name
-            item.target = self
-            configMenu.addItem(item)
-            profileMenuItems.append(item)
-        }
-
-        configMenu.addItem(NSMenuItem.separator())
-
-        autoStartItem = NSMenuItem(
-            title: L.t("Démarrer Colima au lancement", "Auto-start Colima on launch"),
-            action: #selector(toggleAutoStart),
+        let settingsItem = NSMenuItem(
+            title: "⚙ \(L.t("Paramètres", "Settings")) →",
+            action: #selector(openSettingsPanel),
             keyEquivalent: "")
-        autoStartItem.target = self
-        autoStartItem.state = ColimaConfig.autoStartOnLaunch ? .on : .off
-        configMenu.addItem(autoStartItem)
-
-        configItem.submenu = configMenu
-        menu.addItem(configItem)
-
-        // Login at startup
-        loginItem = NSMenuItem(
-            title: L.t("Lancer au démarrage", "Launch at login"),
-            action: #selector(toggleLoginItem), keyEquivalent: "")
-        loginItem.target = self
-        menu.addItem(loginItem)
+        settingsItem.target = self
+        menu.addItem(settingsItem)
 
         menu.addItem(NSMenuItem.separator())
 
@@ -268,9 +221,13 @@ final class StatusBarController {
     // MARK: - State updates
 
     func update(state: ColimaAppState) {
+        if case .running = state.colima, case .running = lastState.colima {
+            detectContainerCrashes(prev: lastState.containers, new: state.containers)
+        }
         lastState = state
         updateIcon(colima: state.colima)
         updateMenuItems(state: state)
+        settingsPanelVC?.isColimaRunning = isColimaRunning
     }
 
     private func updateIcon(colima: ColimaRunningState) {
@@ -355,23 +312,7 @@ final class StatusBarController {
         installPortainerItem.isHidden = !running || state.portainerExists
 
         isColimaRunning = running
-
-        if let appDelegate = NSApp.delegate as? AppDelegate {
-            loginItem.state = appDelegate.isLoginItemEnabled() ? .on : .off
-        }
-
-        let currentCPU = state.cpus ?? ColimaConfig.desiredCPUs
-        let currentMem = state.memoryGB.map { Int($0.rounded()) } ?? ColimaConfig.desiredMemoryGB
-        for item in cpuMenuItems { item.state = item.tag == currentCPU ? .on : .off }
-        for item in memMenuItems { item.state = item.tag == currentMem ? .on : .off }
-
-        let activeCPU = state.cpus ?? ColimaConfig.desiredCPUs
-        let activeMem = state.memoryGB.map { Int($0.rounded()) } ?? ColimaConfig.desiredMemoryGB
-        for item in profileMenuItems {
-            guard let name = item.representedObject as? String,
-                  let profile = ColimaProfile.presets.first(where: { $0.name == name }) else { continue }
-            item.state = (profile.cpus == activeCPU && profile.memoryGB == activeMem) ? .on : .off
-        }
+        pruneItem.isHidden = !running
 
         updateContainersItem(state.containers)
     }
@@ -462,39 +403,53 @@ final class StatusBarController {
         }
     }
 
-    @objc private func toggleAutoStart() {
-        ColimaConfig.autoStartOnLaunch = !ColimaConfig.autoStartOnLaunch
-        autoStartItem.state = ColimaConfig.autoStartOnLaunch ? .on : .off
-    }
-
-    @objc private func toggleLoginItem() {
-        (NSApp.delegate as? AppDelegate)?.toggleLoginItem()
-        if let appDelegate = NSApp.delegate as? AppDelegate {
-            loginItem.state = appDelegate.isLoginItemEnabled() ? .on : .off
+    @objc private func openSettingsPanel() {
+        guard let button = statusItem.button else { return }
+        settingsPanelVC.isColimaRunning    = isColimaRunning
+        settingsPanelVC.isLoginItemEnabled = (NSApp.delegate as? AppDelegate)?.isLoginItemEnabled() ?? false
+        settingsPanelVC.syncControls()
+        if settingsPopover.isShown {
+            settingsPopover.close()
+        } else {
+            settingsPopover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
         }
     }
 
-    @objc private func setCPU(_ sender: NSMenuItem) {
-        let cpus = sender.tag
-        ColimaConfig.desiredCPUs = cpus
-        for item in cpuMenuItems { item.state = item.tag == cpus ? .on : .off }
-        if isColimaRunning { restartWithNewConfig() }
+    @objc private func pruneDocker() {
+        let alert = NSAlert()
+        alert.messageText     = L.t("Vider Docker", "Prune Docker")
+        alert.informativeText = L.t(
+            "Supprime les images, containers arrêtés et volumes non utilisés. Irréversible.",
+            "Removes stopped containers, unused images and volumes. Cannot be undone.")
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: L.t("Vider", "Prune"))
+        alert.addButton(withTitle: L.t("Annuler", "Cancel"))
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        pruneItem.isEnabled = false
+        manager.pruneDocker { [weak self] result in
+            self?.pruneItem.isEnabled = true
+            let appDelegate = NSApp.delegate as? AppDelegate
+            switch result {
+            case .success:
+                appDelegate?.showSuccess(L.t("Docker purgé avec succès", "Docker pruned successfully"))
+            case .failure(let error):
+                appDelegate?.showError(error.localizedDescription)
+            }
+        }
     }
 
-    @objc private func setMemory(_ sender: NSMenuItem) {
-        let gb = sender.tag
-        ColimaConfig.desiredMemoryGB = gb
-        for item in memMenuItems { item.state = item.tag == gb ? .on : .off }
-        if isColimaRunning { restartWithNewConfig() }
-    }
-
-    @objc private func setLanguage(_ sender: NSMenuItem) {
-        let raw = sender.representedObject as? String ?? "system"
-        L.current = AppLanguage(rawValue: raw) ?? .system
-        let state = lastState
-        buildMenu()
-        statusItem.menu = menu
-        update(state: state)
+    private func detectContainerCrashes(prev: [DockerContainer], new: [DockerContainer]) {
+        guard !prev.isEmpty else { return }
+        let prevMap = Dictionary(uniqueKeysWithValues: prev.map { ($0.name, $0.state) })
+        let appDelegate = NSApp.delegate as? AppDelegate
+        for c in new {
+            if let ps = prevMap[c.name], ps == .running,
+               c.state == .exited || c.state == .dead {
+                appDelegate?.showError(L.t(
+                    "Container '\(c.name)' s'est arrêté inopinément",
+                    "Container '\(c.name)' exited unexpectedly"))
+            }
+        }
     }
 
     private func restartWithNewConfig() {
@@ -534,24 +489,19 @@ final class StatusBarController {
     }
 
     private func openLogsTerminal(containerName name: String) {
-        let script = "tell application \"Terminal\" to do script \"docker logs -f \(name)\""
+        runInTerminal("docker logs -f \(name)")
+    }
+
+    private func openShellTerminal(containerName name: String) {
+        runInTerminal("docker exec -it \(name) sh")
+    }
+
+    private func runInTerminal(_ command: String) {
+        let script = "tell application \"Terminal\" to do script \"\(command)\""
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
         process.arguments = ["-e", script]
         try? process.run()
-    }
-
-    @objc private func applyProfile(_ sender: NSMenuItem) {
-        guard let name = sender.representedObject as? String,
-              let profile = ColimaProfile.presets.first(where: { $0.name == name }) else { return }
-        ColimaConfig.desiredCPUs = profile.cpus
-        ColimaConfig.desiredMemoryGB = profile.memoryGB
-        for item in cpuMenuItems { item.state = item.tag == profile.cpus ? .on : .off }
-        for item in memMenuItems { item.state = item.tag == profile.memoryGB ? .on : .off }
-        for item in profileMenuItems {
-            item.state = (item.representedObject as? String) == name ? .on : .off
-        }
-        if isColimaRunning { restartWithNewConfig() }
     }
 
     func showUpdateAvailable(version: String) {

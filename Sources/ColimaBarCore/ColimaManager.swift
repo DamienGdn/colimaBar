@@ -20,7 +20,16 @@ public final class ColimaManager {
 
     // MARK: - Static parsers
 
-    public static func parseListJSON(_ json: String) -> ColimaListEntry? {
+    // Supports both single-JSON and NDJSON (one object per line) output from `colima list --json`.
+    public static func parseListJSON(_ json: String, instanceName: String = "default") -> ColimaListEntry? {
+        let lines = json.components(separatedBy: .newlines).filter { !$0.isEmpty }
+        for line in lines {
+            guard let data = line.data(using: .utf8),
+                  let entry = try? JSONDecoder().decode(ColimaListEntry.self, from: data)
+            else { continue }
+            if entry.name == instanceName { return entry }
+        }
+        // Fallback: single JSON blob
         guard let data = json.data(using: .utf8) else { return nil }
         return try? JSONDecoder().decode(ColimaListEntry.self, from: data)
     }
@@ -44,7 +53,8 @@ public final class ColimaManager {
                     name: name,
                     state: DockerContainer.ContainerState(rawValue: c.State) ?? .unknown,
                     status: c.Status,
-                    image: c.Image
+                    image: c.Image,
+                    ports: c.Ports ?? ""
                 )
             }
     }
@@ -135,13 +145,14 @@ public final class ColimaManager {
         }
         DispatchQueue.global(qos: .userInitiated).async {
             let startTime = Date()
-            let cpus = ColimaConfig.desiredCPUs
-            let mem = ColimaConfig.desiredMemoryGB
-            let result = self.shell.run(self.colimaPath, args: [
-                "start",
-                "--cpu", "\(cpus)",
-                "--memory", "\(mem)"
-            ])
+            let cpus     = ColimaConfig.desiredCPUs
+            let mem      = ColimaConfig.desiredMemoryGB
+            let disk     = ColimaConfig.desiredDiskGB
+            let instance = ColimaConfig.activeInstanceName
+            var args = ["start"]
+            if instance != "default" { args.append(instance) }
+            args += ["--cpu", "\(cpus)", "--memory", "\(mem)", "--disk", "\(disk)"]
+            let result = self.shell.run(self.colimaPath, args: args)
             guard result.exitCode == 0 else {
                 let err = ShellError(message: result.error.isEmpty ? L.t("Échec démarrage Colima", "Failed to start Colima") : result.error)
                 DispatchQueue.main.async { completion(.failure(err)) }
@@ -177,7 +188,10 @@ public final class ColimaManager {
             onTransition(ColimaAppState(colima: .transitioning(L.t("Arrêt…", "Stopping…"))))
         }
         DispatchQueue.global(qos: .userInitiated).async {
-            let result = self.shell.run(self.colimaPath, args: ["stop"])
+            let instance = ColimaConfig.activeInstanceName
+            var args = ["stop"]
+            if instance != "default" { args.append(instance) }
+            let result = self.shell.run(self.colimaPath, args: args)
             guard result.exitCode == 0 else {
                 let err = ShellError(message: result.error.isEmpty ? L.t("Échec arrêt Colima", "Failed to stop Colima") : result.error)
                 DispatchQueue.main.async { completion(.failure(err)) }
@@ -263,13 +277,29 @@ public final class ColimaManager {
     public func stopColimaSync() {
         let state = fetchStateSync()
         guard state.colima == .running else { return }
-        _ = shell.run(colimaPath, args: ["stop"])
+        let instance = ColimaConfig.activeInstanceName
+        var args = ["stop"]
+        if instance != "default" { args.append(instance) }
+        _ = shell.run(colimaPath, args: args)
+    }
+
+    public func pruneDocker(completion: @escaping (Result<String, Error>) -> Void) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            let result = self.shell.run(self.dockerPath, args: ["system", "prune", "-f"])
+            if result.exitCode == 0 {
+                DispatchQueue.main.async { completion(.success(result.output)) }
+            } else {
+                let msg = result.error.isEmpty ? "docker system prune failed" : result.error
+                DispatchQueue.main.async { completion(.failure(ShellError(message: msg))) }
+            }
+        }
     }
 
     // MARK: - Private helpers
 
     private func waitForSocket() {
-        let socketPath = NSHomeDirectory() + "/.colima/default/docker.sock"
+        let instance   = ColimaConfig.activeInstanceName
+        let socketPath = NSHomeDirectory() + "/.colima/\(instance)/docker.sock"
         var attempts = 0
         while !FileManager.default.fileExists(atPath: socketPath) && attempts < 60 {
             Thread.sleep(forTimeInterval: 1)
@@ -279,9 +309,19 @@ public final class ColimaManager {
 
     // MARK: - State fetch
 
+    public func fetchContainerStats(name: String, completion: @escaping (ResourceUsage?) -> Void) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            let result = self.shell.run(self.dockerPath, args: [
+                "stats", "--no-stream", "--format", "{{.CPUPerc}}\t{{.MemUsage}}", name
+            ])
+            let usage = result.exitCode == 0 ? Self.parseDockerStats(result.output) : nil
+            DispatchQueue.main.async { completion(usage) }
+        }
+    }
+
     public func fetchStateSync() -> ColimaAppState {
         let listResult = shell.run(colimaPath, args: ["list", "--json"])
-        guard let entry = Self.parseListJSON(listResult.output) else {
+        guard let entry = Self.parseListJSON(listResult.output, instanceName: ColimaConfig.activeInstanceName) else {
             return .unknown
         }
 

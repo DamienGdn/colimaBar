@@ -1,13 +1,16 @@
 import Foundation
 
 public struct ColimaConfig {
-    public static let cpuOptions: [Int] = [1, 2, 4, 6, 8]
+    public static let cpuOptions:    [Int] = [1, 2, 4, 6, 8]
     public static let memoryOptions: [Int] = [2, 4, 6, 8, 16]
+    public static let diskOptions:   [Int] = [20, 40, 60, 100, 200]
 
     private static let cpuKey          = "colima.desiredCPUs"
     private static let memKey          = "colima.desiredMemoryGB"
+    private static let diskKey         = "colima.desiredDiskGB"
     private static let autoStartKey    = "colima.autoStartOnLaunch"
     private static let showAllKey      = "colima.showAllContainers"
+    private static let instanceKey     = "colima.activeInstanceName"
 
     public static var autoStartOnLaunch: Bool {
         get { UserDefaults.standard.bool(forKey: autoStartKey) }
@@ -36,6 +39,19 @@ public struct ColimaConfig {
             return v > 0 ? v : 4
         }
         set { UserDefaults.standard.set(newValue, forKey: memKey) }
+    }
+
+    public static var desiredDiskGB: Int {
+        get {
+            let v = UserDefaults.standard.integer(forKey: diskKey)
+            return v > 0 ? v : 60
+        }
+        set { UserDefaults.standard.set(newValue, forKey: diskKey) }
+    }
+
+    public static var activeInstanceName: String {
+        get { UserDefaults.standard.string(forKey: instanceKey) ?? "default" }
+        set { UserDefaults.standard.set(newValue, forKey: instanceKey) }
     }
 }
 

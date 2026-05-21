@@ -3,23 +3,29 @@ import ColimaBarCore
 
 final class ContainersPanelViewController: NSViewController {
 
-    var onStart:   ((String) -> Void)?
-    var onStop:    ((String) -> Void)?
-    var onRestart: ((String) -> Void)?
-    var onLogs:    ((String) -> Void)?
+    var onStart:      ((String) -> Void)?
+    var onStop:       ((String) -> Void)?
+    var onRestart:    ((String) -> Void)?
+    var onLogs:       ((String) -> Void)?
+    var onShell:      ((String) -> Void)?
+    var onFetchStats: ((String, @escaping (ResourceUsage?) -> Void) -> Void)?
 
-    private var statsLabel:    NSTextField!
-    private var filterControl: NSSegmentedControl!
-    private var scrollView:    NSScrollView!
-    private var tableView:     NSTableView!
-    private var startBtn:      NSButton!
-    private var stopBtn:       NSButton!
-    private var restartBtn:    NSButton!
-    private var logsBtn:       NSButton!
+    private var statsLabel:       NSTextField!
+    private var searchField:      NSSearchField!
+    private var filterControl:    NSSegmentedControl!
+    private var scrollView:       NSScrollView!
+    private var tableView:        NSTableView!
+    private var containerStatLbl: NSTextField!
+    private var startBtn:         NSButton!
+    private var stopBtn:          NSButton!
+    private var restartBtn:       NSButton!
+    private var logsBtn:          NSButton!
+    private var shellBtn:         NSButton!
 
     private var allContainers: [DockerContainer] = []
     private var displayed:     [DockerContainer] = []
     private var usage:         ResourceUsage?
+    private var searchText     = ""
 
     override func loadView() {
         view = NSView(frame: NSRect(x: 0, y: 0, width: 600, height: 500))
@@ -42,6 +48,7 @@ final class ContainersPanelViewController: NSViewController {
     // MARK: - UI
 
     private func buildUI() {
+        // ── Row 1: stats + filter ──────────────────────────────────────
         statsLabel = NSTextField(labelWithString: "")
         statsLabel.font      = .systemFont(ofSize: 11)
         statsLabel.textColor = .secondaryLabelColor
@@ -51,27 +58,36 @@ final class ContainersPanelViewController: NSViewController {
         filterControl = NSSegmentedControl(
             labels: [L.t("Tous", "All"), L.t("Actifs", "Running")],
             trackingMode: .selectOne,
-            target: self,
-            action: #selector(filterChanged))
+            target: self, action: #selector(filterChanged))
         filterControl.selectedSegment = ColimaConfig.showAllContainers ? 0 : 1
         filterControl.controlSize     = .small
         filterControl.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(filterControl)
 
+        // ── Row 2: search ──────────────────────────────────────────────
+        searchField = NSSearchField()
+        searchField.placeholderString = L.t("Rechercher un container…", "Search containers…")
+        searchField.controlSize       = .small
+        searchField.target            = self
+        searchField.action            = #selector(searchChanged)
+        searchField.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(searchField)
+
+        // ── Table ──────────────────────────────────────────────────────
         tableView = NSTableView()
         tableView.style      = .plain
         tableView.rowHeight  = 22
-        tableView.usesAlternatingRowBackgroundColors = true
-        tableView.columnAutoresizingStyle            = .lastColumnOnlyAutoresizingStyle
+        tableView.columnAutoresizingStyle = .lastColumnOnlyAutoresizingStyle
         tableView.delegate   = self
         tableView.dataSource = self
         tableView.headerView = NSTableHeaderView()
 
         for (id, title, width) in [
-            ("state",  "",                          24.0),
-            ("name",   L.t("Nom", "Name"),         150.0),
-            ("image",  L.t("Image", "Image"),      140.0),
-            ("status", L.t("Statut", "Status"),     90.0),
+            ("state",  "",                              22.0),
+            ("name",   L.t("Nom", "Name"),             160.0),
+            ("image",  L.t("Image", "Image"),          160.0),
+            ("status", L.t("Statut", "Status"),        100.0),
+            ("ports",  L.t("Ports", "Ports"),          130.0),
         ] as [(String, String, CGFloat)] {
             let col = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(id))
             col.title    = title
@@ -89,34 +105,58 @@ final class ContainersPanelViewController: NSViewController {
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(scrollView)
 
+        // ── Per-container stats ────────────────────────────────────────
+        containerStatLbl = NSTextField(labelWithString: "")
+        containerStatLbl.font      = .systemFont(ofSize: 11)
+        containerStatLbl.textColor = .secondaryLabelColor
+        containerStatLbl.alignment = .right
+        containerStatLbl.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(containerStatLbl)
+
+        // ── Action buttons ────────────────────────────────────────────
         startBtn   = makeBtn(L.t("▶ Démarrer", "▶ Start"),       #selector(startAction))
         stopBtn    = makeBtn(L.t("■ Arrêter",  "■ Stop"),         #selector(stopAction))
-        restartBtn = makeBtn(L.t("↺ Redémarrer", "↺ Restart"),   #selector(restartAction))
+        restartBtn = makeBtn(L.t("↺ Restart",  "↺ Restart"),     #selector(restartAction))
         logsBtn    = makeBtn(L.t("Logs", "Logs"),                 #selector(logsAction))
+        shellBtn   = makeBtn(L.t("Shell", "Shell"),               #selector(shellAction))
 
-        let btnStack = NSStackView(views: [startBtn, stopBtn, restartBtn, logsBtn])
+        let btnStack = NSStackView(views: [startBtn, stopBtn, restartBtn, logsBtn, shellBtn])
         btnStack.orientation  = .horizontal
-        btnStack.spacing      = 6
+        btnStack.spacing      = 5
         btnStack.distribution = .fillEqually
         btnStack.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(btnStack)
 
+        // ── Constraints ───────────────────────────────────────────────
         NSLayoutConstraint.activate([
-            statsLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 12),
+            // row 1
             statsLabel.topAnchor.constraint(equalTo: view.topAnchor, constant: 10),
+            statsLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 12),
             statsLabel.trailingAnchor.constraint(lessThanOrEqualTo: filterControl.leadingAnchor, constant: -8),
             statsLabel.centerYAnchor.constraint(equalTo: filterControl.centerYAnchor),
-
             filterControl.topAnchor.constraint(equalTo: view.topAnchor, constant: 8),
             filterControl.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -12),
 
-            scrollView.topAnchor.constraint(equalTo: filterControl.bottomAnchor, constant: 8),
+            // row 2
+            searchField.topAnchor.constraint(equalTo: filterControl.bottomAnchor, constant: 6),
+            searchField.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 8),
+            searchField.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -8),
+
+            // table
+            scrollView.topAnchor.constraint(equalTo: searchField.bottomAnchor, constant: 6),
             scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 8),
             scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -8),
-            scrollView.bottomAnchor.constraint(equalTo: btnStack.topAnchor, constant: -8),
+            scrollView.bottomAnchor.constraint(equalTo: containerStatLbl.topAnchor, constant: -4),
 
-            btnStack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 12),
-            btnStack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -12),
+            // per-container stats
+            containerStatLbl.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 12),
+            containerStatLbl.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -12),
+            containerStatLbl.bottomAnchor.constraint(equalTo: btnStack.topAnchor, constant: -4),
+            containerStatLbl.heightAnchor.constraint(equalToConstant: 16),
+
+            // buttons
+            btnStack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 8),
+            btnStack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -8),
             btnStack.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -10),
             btnStack.heightAnchor.constraint(equalToConstant: 24),
         ])
@@ -135,11 +175,13 @@ final class ContainersPanelViewController: NSViewController {
     // MARK: - Data
 
     private func applyFilter() {
-        displayed = ColimaConfig.showAllContainers
-            ? allContainers
-            : allContainers.filter { $0.isRunning }
+        let base = ColimaConfig.showAllContainers ? allContainers : allContainers.filter { $0.isRunning }
+        displayed = searchText.isEmpty
+            ? base
+            : base.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
         tableView?.reloadData()
         updateButtons()
+        containerStatLbl?.stringValue = ""
     }
 
     private func refreshStats() {
@@ -160,11 +202,30 @@ final class ContainersPanelViewController: NSViewController {
         stopBtn.isEnabled    = c?.isRunning == true
         restartBtn.isEnabled = c?.isRunning == true
         logsBtn.isEnabled    = c != nil
+        shellBtn.isEnabled   = c?.isRunning == true
     }
 
     private func selected() -> DockerContainer? {
         let r = tableView.selectedRow
         return (r >= 0 && r < displayed.count) ? displayed[r] : nil
+    }
+
+    private func fetchSelectedStats() {
+        guard let c = selected(), c.isRunning else {
+            containerStatLbl.stringValue = ""
+            return
+        }
+        containerStatLbl.stringValue = "…"
+        let name = c.name
+        onFetchStats?(name) { [weak self] usage in
+            guard let self, self.selected()?.name == name else { return }
+            if let u = usage {
+                self.containerStatLbl.stringValue = String(
+                    format: "CPU %.1f%%  RAM %@", u.cpuPercent, u.memUsedFormatted)
+            } else {
+                self.containerStatLbl.stringValue = ""
+            }
+        }
     }
 
     // MARK: - Actions
@@ -174,10 +235,29 @@ final class ContainersPanelViewController: NSViewController {
         applyFilter()
     }
 
+    @objc private func searchChanged() {
+        searchText = searchField.stringValue
+        applyFilter()
+    }
+
     @objc private func startAction()   { guard let c = selected() else { return }; onStart?(c.name) }
     @objc private func stopAction()    { guard let c = selected() else { return }; onStop?(c.name) }
     @objc private func restartAction() { guard let c = selected() else { return }; onRestart?(c.name) }
     @objc private func logsAction()    { guard let c = selected() else { return }; onLogs?(c.name) }
+    @objc private func shellAction()   { guard let c = selected() else { return }; onShell?(c.name) }
+}
+
+// MARK: - Row view (colored background)
+
+private final class ContainerRowView: NSTableRowView {
+    var isRunning = false
+    override func drawBackground(in dirtyRect: NSRect) {
+        (isRunning
+            ? NSColor.systemGreen.withAlphaComponent(0.08)
+            : NSColor.clear
+        ).setFill()
+        dirtyRect.fill()
+    }
 }
 
 // MARK: - NSTableViewDataSource / Delegate
@@ -185,6 +265,13 @@ final class ContainersPanelViewController: NSViewController {
 extension ContainersPanelViewController: NSTableViewDataSource, NSTableViewDelegate {
 
     func numberOfRows(in tableView: NSTableView) -> Int { displayed.count }
+
+    func tableView(_ tableView: NSTableView,
+                   rowViewForRow row: Int) -> NSTableRowView? {
+        let rv = ContainerRowView()
+        rv.isRunning = row < displayed.count && displayed[row].isRunning
+        return rv
+    }
 
     func tableView(_ tableView: NSTableView,
                    viewFor tableColumn: NSTableColumn?,
@@ -225,10 +312,17 @@ extension ContainersPanelViewController: NSTableViewDataSource, NSTableViewDeleg
         case "status":
             cell.textField?.stringValue = c.status
             cell.textField?.textColor   = .secondaryLabelColor
+        case "ports":
+            let p = c.hostPorts
+            cell.textField?.stringValue = p
+            cell.textField?.textColor   = p.isEmpty ? .tertiaryLabelColor : .secondaryLabelColor
         default: break
         }
         return cell
     }
 
-    func tableViewSelectionDidChange(_ notification: Notification) { updateButtons() }
+    func tableViewSelectionDidChange(_ notification: Notification) {
+        updateButtons()
+        fetchSelectedStats()
+    }
 }
