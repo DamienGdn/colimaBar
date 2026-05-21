@@ -12,6 +12,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         manager = ColimaManager()
         statusBarController = StatusBarController(manager: manager)
         manager.startPolling()
+        if ColimaConfig.autoStartOnLaunch {
+            manager.startColima(onTransition: { [weak self] state in
+                self?.statusBarController.update(state: state)
+            }, completion: { [weak self] _ in
+                // state update handled by polling
+                _ = self
+            })
+        }
         manager.checkForColimaUpdate { [weak self] newVersion in
             guard let version = newVersion else { return }
             self?.statusBarController.showUpdateAvailable(version: version)

@@ -27,6 +27,7 @@ final class StatusBarController {
     private var memMenuItems: [NSMenuItem] = []
     private var langMenuItems: [AppLanguage: NSMenuItem] = [:]
     private var profileMenuItems: [NSMenuItem] = []
+    private var autoStartItem: NSMenuItem!
     private var isColimaRunning = false
     private var containersItem: NSMenuItem!
     private var containersMenu: NSMenu!
@@ -200,6 +201,16 @@ final class StatusBarController {
             profileMenuItems.append(item)
         }
 
+        configMenu.addItem(NSMenuItem.separator())
+
+        autoStartItem = NSMenuItem(
+            title: L.t("Démarrer Colima au lancement", "Auto-start Colima on launch"),
+            action: #selector(toggleAutoStart),
+            keyEquivalent: "")
+        autoStartItem.target = self
+        autoStartItem.state = ColimaConfig.autoStartOnLaunch ? .on : .off
+        configMenu.addItem(autoStartItem)
+
         configItem.submenu = configMenu
         menu.addItem(configItem)
 
@@ -340,7 +351,19 @@ final class StatusBarController {
         containersItem.title = "\(runningCount)/\(containers.count) \(L.t("containers", "containers"))"
         containersItem.isHidden = false
 
-        for container in containers {
+        // Feature 4: filter toggle
+        let showAll = ColimaConfig.showAllContainers
+        let filterItem = NSMenuItem(
+            title: showAll ? L.t("Actifs seulement", "Running only") : L.t("Tous les containers", "All containers"),
+            action: #selector(toggleContainerFilter),
+            keyEquivalent: "")
+        filterItem.target = self
+        containersMenu.addItem(filterItem)
+        containersMenu.addItem(NSMenuItem.separator())
+
+        let displayed = showAll ? containers : containers.filter { $0.isRunning }
+
+        for container in displayed {
             let stateIcon = container.isRunning ? "▶" : "■"
             let row = NSMenuItem(
                 title: "\(stateIcon) \(container.name)",
@@ -356,6 +379,14 @@ final class StatusBarController {
                 stopItem.representedObject = container.name
                 stopItem.target = self
                 sub.addItem(stopItem)
+
+                let restartItem = NSMenuItem(
+                    title: L.t("Redémarrer", "Restart"),
+                    action: #selector(restartContainerAction(_:)),
+                    keyEquivalent: "")
+                restartItem.representedObject = container.name
+                restartItem.target = self
+                sub.addItem(restartItem)
             } else {
                 let startItem = NSMenuItem(
                     title: L.t("Démarrer", "Start"),
@@ -373,6 +404,14 @@ final class StatusBarController {
             logsItem.representedObject = container.name
             logsItem.target = self
             sub.addItem(logsItem)
+
+            let copyItem = NSMenuItem(
+                title: L.t("Copier l'ID", "Copy ID"),
+                action: #selector(copyContainerID(_:)),
+                keyEquivalent: "")
+            copyItem.representedObject = container.id
+            copyItem.target = self
+            sub.addItem(copyItem)
 
             row.submenu = sub
             containersMenu.addItem(row)
@@ -452,6 +491,11 @@ final class StatusBarController {
         }
     }
 
+    @objc private func toggleAutoStart() {
+        ColimaConfig.autoStartOnLaunch = !ColimaConfig.autoStartOnLaunch
+        autoStartItem.state = ColimaConfig.autoStartOnLaunch ? .on : .off
+    }
+
     @objc private func toggleLoginItem() {
         (NSApp.delegate as? AppDelegate)?.toggleLoginItem()
         if let appDelegate = NSApp.delegate as? AppDelegate {
@@ -524,6 +568,33 @@ final class StatusBarController {
                 self?.showLastError(error.localizedDescription)
             }
         }
+    }
+
+    @objc private func restartContainerAction(_ sender: NSMenuItem) {
+        guard let name = sender.representedObject as? String else { return }
+        manager.stopContainer(name) { [weak self] result in
+            guard let self else { return }
+            if case .failure(let error) = result {
+                self.showLastError(error.localizedDescription)
+                return
+            }
+            self.manager.startContainer(name) { [weak self] result in
+                if case .failure(let error) = result {
+                    self?.showLastError(error.localizedDescription)
+                }
+            }
+        }
+    }
+
+    @objc private func copyContainerID(_ sender: NSMenuItem) {
+        guard let id = sender.representedObject as? String else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(id, forType: .string)
+    }
+
+    @objc private func toggleContainerFilter() {
+        ColimaConfig.showAllContainers = !ColimaConfig.showAllContainers
+        updateContainersSubmenu(lastState.containers)
     }
 
     @objc private func openContainerLogs(_ sender: NSMenuItem) {

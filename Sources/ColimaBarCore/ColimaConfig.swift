@@ -4,8 +4,23 @@ public struct ColimaConfig {
     public static let cpuOptions: [Int] = [1, 2, 4, 6, 8]
     public static let memoryOptions: [Int] = [2, 4, 6, 8, 16]
 
-    private static let cpuKey = "colima.desiredCPUs"
-    private static let memKey = "colima.desiredMemoryGB"
+    private static let cpuKey          = "colima.desiredCPUs"
+    private static let memKey          = "colima.desiredMemoryGB"
+    private static let autoStartKey    = "colima.autoStartOnLaunch"
+    private static let showAllKey      = "colima.showAllContainers"
+
+    public static var autoStartOnLaunch: Bool {
+        get { UserDefaults.standard.bool(forKey: autoStartKey) }
+        set { UserDefaults.standard.set(newValue, forKey: autoStartKey) }
+    }
+
+    public static var showAllContainers: Bool {
+        get {
+            let v = UserDefaults.standard.object(forKey: showAllKey)
+            return v == nil ? true : UserDefaults.standard.bool(forKey: showAllKey)
+        }
+        set { UserDefaults.standard.set(newValue, forKey: showAllKey) }
+    }
 
     public static var desiredCPUs: Int {
         get {

@@ -90,23 +90,38 @@ public final class ColimaManager {
         return 0
     }
 
-    // MARK: - Polling
+    // MARK: - Polling (adaptive: 5s when running, 30s when stopped)
+
+    private var pollingActive = false
+    private var isCurrentlyRunning = false
 
     public func startPolling() {
-        let t = DispatchSource.makeTimerSource(queue: .global(qos: .background))
-        t.schedule(deadline: .now(), repeating: 5.0)
-        t.setEventHandler { [weak self] in
-            guard let self else { return }
-            let state = self.fetchStateSync()
-            DispatchQueue.main.async { self.onStateChange?(state) }
-        }
-        t.resume()
-        timer = t
+        pollingActive = true
+        pollOnce()
     }
 
     public func stopPolling() {
+        pollingActive = false
         timer?.cancel()
         timer = nil
+    }
+
+    private func pollOnce() {
+        DispatchQueue.global(qos: .background).async { [weak self] in
+            guard let self, self.pollingActive else { return }
+            let state = self.fetchStateSync()
+            self.isCurrentlyRunning = state.colima == .running
+            DispatchQueue.main.async { self.onStateChange?(state) }
+            let interval: TimeInterval = self.isCurrentlyRunning ? 5.0 : 30.0
+            let t = DispatchSource.makeTimerSource(queue: .global(qos: .background))
+            t.schedule(deadline: .now() + interval)
+            t.setEventHandler { [weak self] in
+                t.cancel()
+                self?.pollOnce()
+            }
+            t.resume()
+            self.timer = t
+        }
     }
 
     // MARK: - Actions
