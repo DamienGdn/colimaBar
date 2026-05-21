@@ -17,6 +17,8 @@ test_parseDockerContainers_multiLine()
 test_parseDockerContainers_running()
 test_parseDockerContainers_exited()
 test_parseDockerContainers_empty()
+test_fetchStateSync_running_includesContainers()
+test_fetchStateSync_stopped_noContainers()
 
 print("\n\(_passed) passed, \(_failed) failed")
 if _failed > 0 {

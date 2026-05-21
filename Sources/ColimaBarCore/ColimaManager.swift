@@ -119,6 +119,7 @@ public final class ColimaManager {
             onTransition(ColimaAppState(colima: .transitioning(L.t("Démarrage…", "Starting…"))))
         }
         DispatchQueue.global(qos: .userInitiated).async {
+            let startTime = Date()
             let cpus = ColimaConfig.desiredCPUs
             let mem = ColimaConfig.desiredMemoryGB
             let result = self.shell.run(self.colimaPath, args: [
@@ -138,7 +139,17 @@ public final class ColimaManager {
             if Self.portainerExistsInOutput(portainerCheck.output) {
                 _ = self.shell.run(self.dockerPath, args: ["start", "portainer"])
             }
-            let state = self.fetchStateSync()
+            let duration = Date().timeIntervalSince(startTime)
+            let base = self.fetchStateSync()
+            let state = ColimaAppState(
+                colima: base.colima,
+                cpus: base.cpus,
+                memoryGB: base.memoryGB,
+                portainerExists: base.portainerExists,
+                usage: base.usage,
+                containers: base.containers,
+                startDuration: duration
+            )
             DispatchQueue.main.async { completion(.success(state)) }
         }
     }
@@ -216,6 +227,7 @@ public final class ColimaManager {
 
         var portainerExists = false
         var usage: ResourceUsage? = nil
+        var containers: [DockerContainer] = []
         if isRunning {
             let r = shell.run(dockerPath, args: [
                 "ps", "-a",
@@ -228,6 +240,9 @@ public final class ColimaManager {
                 "stats", "--no-stream", "--format", "{{.CPUPerc}}\t{{.MemUsage}}"
             ])
             usage = Self.parseDockerStats(statsResult.output)
+
+            let containerResult = shell.run(dockerPath, args: ["ps", "-a", "--format", "{{json .}}"])
+            containers = Self.parseDockerContainers(containerResult.output)
         }
 
         return ColimaAppState(
@@ -235,7 +250,8 @@ public final class ColimaManager {
             cpus: entry.cpus,
             memoryGB: memoryGB,
             portainerExists: portainerExists,
-            usage: usage
+            usage: usage,
+            containers: containers
         )
     }
 }

@@ -192,3 +192,27 @@ func test_parseDockerContainers_empty() {
     check(ColimaManager.parseDockerContainers("").isEmpty, "empty → empty array")
     check(ColimaManager.parseDockerContainers("not json").isEmpty, "invalid → empty array")
 }
+
+func test_fetchStateSync_running_includesContainers() {
+    let mock = MockShellRunner()
+    mock.responses[makeKey(_colimaPath, ["list", "--json"])] = (output: runningJSON, error: "", exitCode: 0)
+    mock.responses[makeKey(_dockerPath, dockerFilter)] = (output: "portainer", error: "", exitCode: 0)
+    mock.responses[makeKey(_dockerPath, ["stats", "--no-stream", "--format", "{{.CPUPerc}}\t{{.MemUsage}}"])] = (output: "portainer\t1.5%\t80MiB / 4GiB", error: "", exitCode: 0)
+    mock.responses[makeKey(_dockerPath, ["ps", "-a", "--format", "{{json .}}"])] = (
+        output: "{\"ID\":\"abc\",\"Names\":\"portainer\",\"State\":\"running\",\"Status\":\"Up\",\"Image\":\"portainer/portainer-ce:latest\"}",
+        error: "", exitCode: 0
+    )
+    let manager = ColimaManager(shell: mock, colimaPath: _colimaPath, dockerPath: _dockerPath)
+    let state = manager.fetchStateSync()
+    check(state.containers.count == 1, "should have 1 container")
+    check(state.containers[0].name == "portainer", "container name")
+    check(state.containers[0].isRunning, "container running")
+}
+
+func test_fetchStateSync_stopped_noContainers() {
+    let mock = MockShellRunner()
+    mock.responses[makeKey(_colimaPath, ["list", "--json"])] = (output: stoppedJSON, error: "", exitCode: 0)
+    let manager = ColimaManager(shell: mock, colimaPath: _colimaPath, dockerPath: _dockerPath)
+    let state = manager.fetchStateSync()
+    check(state.containers.isEmpty, "stopped → no containers")
+}
