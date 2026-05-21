@@ -21,6 +21,13 @@ test_fetchStateSync_running_includesContainers()
 test_fetchStateSync_stopped_noContainers()
 test_colimaProfiles_presets()
 test_colimaProfiles_activeMatch()
+test_health_healthy()
+test_health_unhealthy()
+test_health_starting()
+test_health_nil_no_healthcheck()
+test_hostPortNumbers_single()
+test_hostPortNumbers_multiple()
+test_hostPortNumbers_empty()
 
 print("\n\(_passed) passed, \(_failed) failed")
 if _failed > 0 {

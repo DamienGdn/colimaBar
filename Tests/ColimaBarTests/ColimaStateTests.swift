@@ -238,3 +238,48 @@ func test_colimaProfiles_activeMatch() {
     UserDefaults.standard.removeObject(forKey: "colima.desiredCPUs")
     UserDefaults.standard.removeObject(forKey: "colima.desiredMemoryGB")
 }
+
+// MARK: - DockerContainer health check tests
+
+func test_health_healthy() {
+    let c = DockerContainer(id: "x", name: "x", state: .running,
+                            status: "Up 2 hours (healthy)", image: "nginx", ports: "")
+    checkEqual(c.health, DockerContainer.HealthStatus.healthy, "status contains (healthy)")
+}
+
+func test_health_unhealthy() {
+    let c = DockerContainer(id: "x", name: "x", state: .running,
+                            status: "Up 1 hour (unhealthy)", image: "nginx", ports: "")
+    checkEqual(c.health, DockerContainer.HealthStatus.unhealthy, "status contains (unhealthy)")
+}
+
+func test_health_starting() {
+    let c = DockerContainer(id: "x", name: "x", state: .running,
+                            status: "Up 5s (health: starting)", image: "nginx", ports: "")
+    checkEqual(c.health, DockerContainer.HealthStatus.starting, "status contains (health: starting)")
+}
+
+func test_health_nil_no_healthcheck() {
+    let c = DockerContainer(id: "x", name: "x", state: .running,
+                            status: "Up 3 days", image: "nginx", ports: "")
+    checkNil(c.health, "status without health → nil")
+}
+
+// MARK: - DockerContainer hostPortNumbers tests
+
+func test_hostPortNumbers_single() {
+    let c = DockerContainer(id: "x", name: "x", state: .running, status: "",
+                            image: "", ports: "0.0.0.0:8080->8080/tcp")
+    checkEqual(c.hostPortNumbers, [8080], "single port → [8080]")
+}
+
+func test_hostPortNumbers_multiple() {
+    let c = DockerContainer(id: "x", name: "x", state: .running, status: "",
+                            image: "", ports: "0.0.0.0:8000->8000/tcp, :::9443->9443/tcp")
+    checkEqual(c.hostPortNumbers, [8000, 9443], "two ports → [8000, 9443]")
+}
+
+func test_hostPortNumbers_empty() {
+    let c = DockerContainer(id: "x", name: "x", state: .running, status: "", image: "", ports: "")
+    check(c.hostPortNumbers.isEmpty, "no ports → empty array")
+}

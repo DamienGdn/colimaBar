@@ -6,6 +6,10 @@ public struct DockerContainer: Equatable {
         case unknown
     }
 
+    public enum HealthStatus: String, Equatable {
+        case healthy, unhealthy, starting
+    }
+
     public let id: String
     public let name: String
     public let state: ContainerState
@@ -13,7 +17,23 @@ public struct DockerContainer: Equatable {
     public let image: String
     public let ports: String
 
+    public init(id: String, name: String, state: ContainerState, status: String, image: String, ports: String) {
+        self.id = id
+        self.name = name
+        self.state = state
+        self.status = status
+        self.image = image
+        self.ports = ports
+    }
+
     public var isRunning: Bool { state == .running }
+
+    public var health: HealthStatus? {
+        if status.contains("(healthy)")          { return .healthy }
+        if status.contains("(unhealthy)")        { return .unhealthy }
+        if status.contains("(health: starting)") { return .starting }
+        return nil
+    }
 
     // Extracts unique host port numbers: "0.0.0.0:8000->8000/tcp, :::9443->9443/tcp" → "8000, 9443"
     public var hostPorts: String {
@@ -28,6 +48,14 @@ public struct DockerContainer: Equatable {
             }
             .filter { seen.insert($0).inserted }
         return nums.joined(separator: ", ")
+    }
+
+    // Extracts unique host port numbers as [Int]
+    public var hostPortNumbers: [Int] {
+        hostPorts
+            .split(separator: ",")
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .compactMap { Int($0) }
     }
 }
 
