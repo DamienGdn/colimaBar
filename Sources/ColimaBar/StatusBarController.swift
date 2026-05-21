@@ -5,6 +5,7 @@ final class StatusBarController {
     private let manager: ColimaManager
     private var statusItem: NSStatusItem!
     private var menu: NSMenu!
+    private var lastState: ColimaAppState = .unknown
 
     // Status display items
     private var colimaStatusItem: NSMenuItem!
@@ -18,10 +19,12 @@ final class StatusBarController {
     private var portainerWarningItem: NSMenuItem!
     private var installPortainerItem: NSMenuItem!
     private var loginItem: NSMenuItem!
+    private var quitItem: NSMenuItem!
 
-    // Config submenu properties (populated in Task 8)
+    // Config submenu
     private var cpuMenuItems: [NSMenuItem] = []
     private var memMenuItems: [NSMenuItem] = []
+    private var langMenuItems: [AppLanguage: NSMenuItem] = [:]
     private var isColimaRunning = false
 
     init(manager: ColimaManager) {
@@ -42,8 +45,12 @@ final class StatusBarController {
     }
 
     private func buildMenu() {
+        cpuMenuItems = []
+        memMenuItems = []
+        langMenuItems = [:]
         menu = NSMenu()
 
+        // Status lines
         colimaStatusItem = NSMenuItem(title: "Colima : …", action: nil, keyEquivalent: "")
         colimaStatusItem.isEnabled = false
         menu.addItem(colimaStatusItem)
@@ -60,36 +67,47 @@ final class StatusBarController {
 
         menu.addItem(NSMenuItem.separator())
 
-        startItem = NSMenuItem(title: "▶ Démarrer Colima", action: #selector(startColima), keyEquivalent: "")
+        // Colima actions
+        startItem = NSMenuItem(
+            title: L.t("▶ Démarrer Colima", "▶ Start Colima"),
+            action: #selector(startColima), keyEquivalent: "")
         startItem.target = self
         menu.addItem(startItem)
 
-        stopItem = NSMenuItem(title: "■ Arrêter Colima", action: #selector(stopColima), keyEquivalent: "")
+        stopItem = NSMenuItem(
+            title: L.t("■ Arrêter Colima", "■ Stop Colima"),
+            action: #selector(stopColima), keyEquivalent: "")
         stopItem.target = self
         menu.addItem(stopItem)
 
         menu.addItem(NSMenuItem.separator())
 
-        portainerWarningItem = NSMenuItem(title: "⚠ Portainer non installé", action: nil, keyEquivalent: "")
+        // Portainer
+        portainerWarningItem = NSMenuItem(
+            title: L.t("⚠ Portainer non installé", "⚠ Portainer not installed"),
+            action: nil, keyEquivalent: "")
         portainerWarningItem.isEnabled = false
         portainerWarningItem.isHidden = true
         menu.addItem(portainerWarningItem)
 
-        installPortainerItem = NSMenuItem(title: "Installer Portainer…", action: #selector(installPortainer), keyEquivalent: "")
+        installPortainerItem = NSMenuItem(
+            title: L.t("Installer Portainer…", "Install Portainer…"),
+            action: #selector(installPortainer), keyEquivalent: "")
         installPortainerItem.target = self
         installPortainerItem.isHidden = true
         menu.addItem(installPortainerItem)
 
-        openPortainerItem = NSMenuItem(title: "Ouvrir Portainer", action: #selector(openPortainer), keyEquivalent: "")
+        openPortainerItem = NSMenuItem(
+            title: L.t("Ouvrir Portainer", "Open Portainer"),
+            action: #selector(openPortainer), keyEquivalent: "")
         openPortainerItem.target = self
         openPortainerItem.isHidden = true
         menu.addItem(openPortainerItem)
 
         menu.addItem(NSMenuItem.separator())
 
-        menu.addItem(NSMenuItem.separator())
-
-        let configItem = NSMenuItem(title: "⚙ Configuration", action: nil, keyEquivalent: "")
+        // ⚙ Configuration submenu
+        let configItem = NSMenuItem(title: "⚙ \(L.t("Configuration", "Configuration"))", action: nil, keyEquivalent: "")
         let configMenu = NSMenu()
 
         let cpuHeader = NSMenuItem(title: "CPUs", action: nil, keyEquivalent: "")
@@ -99,9 +117,7 @@ final class StatusBarController {
         for cpu in ColimaConfig.cpuOptions {
             let item = NSMenuItem(
                 title: "\(cpu) CPU\(cpu > 1 ? "s" : "")",
-                action: #selector(setCPU(_:)),
-                keyEquivalent: ""
-            )
+                action: #selector(setCPU(_:)), keyEquivalent: "")
             item.tag = cpu
             item.target = self
             configMenu.addItem(item)
@@ -110,38 +126,60 @@ final class StatusBarController {
 
         configMenu.addItem(NSMenuItem.separator())
 
-        let memHeader = NSMenuItem(title: "Mémoire", action: nil, keyEquivalent: "")
+        let memHeader = NSMenuItem(title: L.t("Mémoire", "Memory"), action: nil, keyEquivalent: "")
         memHeader.isEnabled = false
         configMenu.addItem(memHeader)
 
         for gb in ColimaConfig.memoryOptions {
-            let item = NSMenuItem(
-                title: "\(gb) GB",
-                action: #selector(setMemory(_:)),
-                keyEquivalent: ""
-            )
+            let item = NSMenuItem(title: "\(gb) GB", action: #selector(setMemory(_:)), keyEquivalent: "")
             item.tag = gb
             item.target = self
             configMenu.addItem(item)
             memMenuItems.append(item)
         }
 
+        configMenu.addItem(NSMenuItem.separator())
+
+        let langHeader = NSMenuItem(title: L.t("Langue", "Language"), action: nil, keyEquivalent: "")
+        langHeader.isEnabled = false
+        configMenu.addItem(langHeader)
+
+        let langOptions: [(AppLanguage, String)] = [
+            (.system,  L.t("Système (auto)", "System (auto)")),
+            (.french,  "Français"),
+            (.english, "English"),
+        ]
+        for (lang, title) in langOptions {
+            let item = NSMenuItem(title: title, action: #selector(setLanguage(_:)), keyEquivalent: "")
+            item.representedObject = lang.rawValue
+            item.state = L.current == lang ? .on : .off
+            item.target = self
+            configMenu.addItem(item)
+            langMenuItems[lang] = item
+        }
+
         configItem.submenu = configMenu
         menu.addItem(configItem)
 
-        loginItem = NSMenuItem(title: "Lancer au démarrage", action: #selector(toggleLoginItem), keyEquivalent: "")
+        // Login at startup
+        loginItem = NSMenuItem(
+            title: L.t("Lancer au démarrage", "Launch at login"),
+            action: #selector(toggleLoginItem), keyEquivalent: "")
         loginItem.target = self
         menu.addItem(loginItem)
 
         menu.addItem(NSMenuItem.separator())
 
-        let quitItem = NSMenuItem(title: "Quitter", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        quitItem = NSMenuItem(
+            title: L.t("Quitter", "Quit"),
+            action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         menu.addItem(quitItem)
     }
 
     // MARK: - State updates
 
     func update(state: ColimaAppState) {
+        lastState = state
         updateIcon(colima: state.colima)
         updateMenuItems(state: state)
     }
@@ -150,7 +188,7 @@ final class StatusBarController {
         guard let button = statusItem.button else { return }
         let color: NSColor
         switch colima {
-        case .running:              color = .systemGreen
+        case .running:             color = .systemGreen
         case .stopped, .unknown:   color = .secondaryLabelColor
         case .transitioning:       color = .systemYellow
         }
@@ -183,12 +221,15 @@ final class StatusBarController {
             colimaStatusItem.title = "Colima : \(msg)"
             transitioning = true
         } else {
-            colimaStatusItem.title = running ? "● Colima : En cours d'exécution" : "○ Colima : Arrêté"
+            colimaStatusItem.title = running
+                ? "● \(L.t("Colima : En cours d'exécution", "Colima: Running"))"
+                : "○ \(L.t("Colima : Arrêté", "Colima: Stopped"))"
             transitioning = false
         }
 
         if let cpus = state.cpus, let mem = state.memoryGB {
-            resourcesItem.title = String(format: "   CPUs: %d  |  Mémoire allouée: %.0f GB", cpus, mem)
+            let label = L.t("Mémoire allouée", "Allocated memory")
+            resourcesItem.title = String(format: "   CPUs: %d  |  \(label): %.0f GB", cpus, mem)
             resourcesItem.isHidden = false
         } else {
             resourcesItem.isHidden = true
@@ -211,12 +252,10 @@ final class StatusBarController {
 
         isColimaRunning = running
 
-        // Update login item checkmark
         if let appDelegate = NSApp.delegate as? AppDelegate {
             loginItem.state = appDelegate.isLoginItemEnabled() ? .on : .off
         }
 
-        // Config submenu checkmarks updated in Task 8
         let currentCPU = state.cpus ?? ColimaConfig.desiredCPUs
         let currentMem = state.memoryGB.map { Int($0.rounded()) } ?? ColimaConfig.desiredMemoryGB
         for item in cpuMenuItems { item.state = item.tag == currentCPU ? .on : .off }
@@ -247,10 +286,8 @@ final class StatusBarController {
             self?.update(state: state)
         }, completion: { [weak self] result in
             switch result {
-            case .success(let state):
-                self?.update(state: state)
-            case .failure(let error):
-                (NSApp.delegate as? AppDelegate)?.showError(error.localizedDescription)
+            case .success(let state): self?.update(state: state)
+            case .failure(let error): (NSApp.delegate as? AppDelegate)?.showError(error.localizedDescription)
             }
         })
     }
@@ -264,10 +301,8 @@ final class StatusBarController {
         manager.installPortainer { [weak self] result in
             self?.installPortainerItem.isEnabled = true
             switch result {
-            case .success:
-                NSWorkspace.shared.open(URL(string: "https://localhost:9443")!)
-            case .failure(let error):
-                (NSApp.delegate as? AppDelegate)?.showError(error.localizedDescription)
+            case .success: NSWorkspace.shared.open(URL(string: "https://localhost:9443")!)
+            case .failure(let error): (NSApp.delegate as? AppDelegate)?.showError(error.localizedDescription)
             }
         }
     }
@@ -291,6 +326,15 @@ final class StatusBarController {
         ColimaConfig.desiredMemoryGB = gb
         for item in memMenuItems { item.state = item.tag == gb ? .on : .off }
         if isColimaRunning { restartWithNewConfig() }
+    }
+
+    @objc private func setLanguage(_ sender: NSMenuItem) {
+        let raw = sender.representedObject as? String ?? "system"
+        L.current = AppLanguage(rawValue: raw) ?? .system
+        let state = lastState
+        buildMenu()
+        statusItem.menu = menu
+        update(state: state)
     }
 
     private func restartWithNewConfig() {

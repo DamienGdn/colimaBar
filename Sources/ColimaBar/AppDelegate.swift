@@ -48,7 +48,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 try SMAppService.mainApp.register()
             }
         } catch {
-            showError("Impossible de modifier le démarrage automatique : \(error.localizedDescription)")
+            showError(L.t("Impossible de modifier le démarrage automatique : \(error.localizedDescription)",
+                          "Unable to change login item: \(error.localizedDescription)"))
         }
     }
 }

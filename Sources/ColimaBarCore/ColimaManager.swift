@@ -97,7 +97,7 @@ public final class ColimaManager {
         completion: @escaping (Result<ColimaAppState, Error>) -> Void
     ) {
         DispatchQueue.main.async {
-            onTransition(ColimaAppState(colima: .transitioning("Démarrage…"), cpus: nil, memoryGB: nil, portainerExists: false))
+            onTransition(ColimaAppState(colima: .transitioning(L.t("Démarrage…", "Starting…"))))
         }
         DispatchQueue.global(qos: .userInitiated).async {
             let cpus = ColimaConfig.desiredCPUs
@@ -108,7 +108,7 @@ public final class ColimaManager {
                 "--memory", "\(mem)"
             ])
             guard result.exitCode == 0 else {
-                let err = ShellError(message: result.error.isEmpty ? "Échec démarrage Colima" : result.error)
+                let err = ShellError(message: result.error.isEmpty ? L.t("Échec démarrage Colima", "Failed to start Colima") : result.error)
                 DispatchQueue.main.async { completion(.failure(err)) }
                 return
             }
@@ -129,12 +129,12 @@ public final class ColimaManager {
         completion: @escaping (Result<ColimaAppState, Error>) -> Void
     ) {
         DispatchQueue.main.async {
-            onTransition(ColimaAppState(colima: .transitioning("Arrêt…"), cpus: nil, memoryGB: nil, portainerExists: false))
+            onTransition(ColimaAppState(colima: .transitioning(L.t("Arrêt…", "Stopping…"))))
         }
         DispatchQueue.global(qos: .userInitiated).async {
             let result = self.shell.run(self.colimaPath, args: ["stop"])
             guard result.exitCode == 0 else {
-                let err = ShellError(message: result.error.isEmpty ? "Échec arrêt Colima" : result.error)
+                let err = ShellError(message: result.error.isEmpty ? L.t("Échec arrêt Colima", "Failed to stop Colima") : result.error)
                 DispatchQueue.main.async { completion(.failure(err)) }
                 return
             }
@@ -160,7 +160,7 @@ public final class ColimaManager {
             if result.exitCode == 0 {
                 DispatchQueue.main.async { completion(.success(())) }
             } else {
-                let msg = result.error.isEmpty ? "Échec installation Portainer" : String(result.error.prefix(200))
+                let msg = result.error.isEmpty ? L.t("Échec installation Portainer", "Failed to install Portainer") : String(result.error.prefix(200))
                 DispatchQueue.main.async { completion(.failure(ShellError(message: msg))) }
             }
         }
