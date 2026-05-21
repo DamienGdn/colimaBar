@@ -25,19 +25,25 @@ public struct ColimaAppState: Equatable {
     public let memoryGB: Double?
     public let portainerExists: Bool
     public let usage: ResourceUsage?
+    public let containers: [DockerContainer]
+    public let startDuration: TimeInterval?
 
     public init(
         colima: ColimaRunningState,
         cpus: Int? = nil,
         memoryGB: Double? = nil,
         portainerExists: Bool = false,
-        usage: ResourceUsage? = nil
+        usage: ResourceUsage? = nil,
+        containers: [DockerContainer] = [],
+        startDuration: TimeInterval? = nil
     ) {
         self.colima = colima
         self.cpus = cpus
         self.memoryGB = memoryGB
         self.portainerExists = portainerExists
         self.usage = usage
+        self.containers = containers
+        self.startDuration = startDuration
     }
 
     public static let unknown = ColimaAppState(colima: .unknown)
