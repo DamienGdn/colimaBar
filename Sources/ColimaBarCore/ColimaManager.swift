@@ -94,6 +94,36 @@ public final class ColimaManager {
             }
     }
 
+    // Parses `docker volume ls --format '{{json .}}'` (lsOutput) for name+driver,
+    // cross-references `docker system df -v` (dfOutput) for sizes.
+    public static func parseDockerVolumes(_ lsOutput: String, _ dfOutput: String) -> [DockerVolume] {
+        // Parse volume ls → name + driver
+        var volumes: [(name: String, driver: String)] = []
+        for line in lsOutput.components(separatedBy: .newlines).filter({ !$0.isEmpty }) {
+            guard let data = line.data(using: .utf8),
+                  let v = try? JSONDecoder().decode(DockerVolumeLSJSON.self, from: data)
+            else { continue }
+            volumes.append((name: v.Name, driver: v.Driver))
+        }
+
+        // Parse df output for sizes: find "VOLUME NAME" header, then read name+size per line
+        var sizes: [String: String] = [:]
+        var inVolumeSection = false
+        for line in dfOutput.components(separatedBy: .newlines) {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if trimmed.hasPrefix("VOLUME NAME") { inVolumeSection = true; continue }
+            guard inVolumeSection, !trimmed.isEmpty else { continue }
+            let parts = trimmed.split(separator: " ", omittingEmptySubsequences: true)
+            if parts.count >= 3, let name = parts.first, let size = parts.last {
+                sizes[String(name)] = String(size)
+            }
+        }
+
+        return volumes.map { v in
+            DockerVolume(name: v.name, driver: v.driver, size: sizes[v.name] ?? "N/A")
+        }
+    }
+
     // Parses `docker stats --no-stream --format "{{.CPUPerc}}\t{{.MemUsage}}"` output.
     public static func parseDockerStats(_ output: String) -> ResourceUsage? {
         var totalCPU = 0.0

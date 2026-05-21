@@ -314,3 +314,44 @@ func test_parseDockerImages_empty() {
     check(ColimaManager.parseDockerImages("").isEmpty, "empty → empty array")
     check(ColimaManager.parseDockerImages("not json").isEmpty, "invalid → empty array")
 }
+
+// MARK: - parseDockerVolumes tests
+
+private let volumeLsOutput = """
+{"Driver":"local","Name":"portainer_data"}
+{"Driver":"local","Name":"my-vol"}
+"""
+
+private let volumeDfOutput = """
+TYPE            TOTAL     ACTIVE    SIZE      RECLAIMABLE
+Local Volumes   2         1         43MB      0B (0%)
+
+Local Volumes space usage:
+
+VOLUME NAME             LINKS     SIZE
+portainer_data          1         42.54MB
+my-vol                  0         1.23GB
+"""
+
+func test_parseDockerVolumes_countAndNames() {
+    let vols = ColimaManager.parseDockerVolumes(volumeLsOutput, volumeDfOutput)
+    check(vols.count == 2, "2 volumes")
+    checkEqual(vols[0].name, "portainer_data", "first volume name")
+    checkEqual(vols[1].name, "my-vol", "second volume name")
+}
+
+func test_parseDockerVolumes_driverAndSize() {
+    let vols = ColimaManager.parseDockerVolumes(volumeLsOutput, volumeDfOutput)
+    checkEqual(vols[0].driver, "local", "driver = local")
+    checkEqual(vols[0].size, "42.54MB", "size from df output")
+    checkEqual(vols[1].size, "1.23GB", "second volume size")
+}
+
+func test_parseDockerVolumes_sizeNA_whenDfMissing() {
+    let vols = ColimaManager.parseDockerVolumes(volumeLsOutput, "")
+    checkEqual(vols[0].size, "N/A", "size = N/A when df output empty")
+}
+
+func test_parseDockerVolumes_empty() {
+    check(ColimaManager.parseDockerVolumes("", "").isEmpty, "empty ls → empty array")
+}

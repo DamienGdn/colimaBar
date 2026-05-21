@@ -31,6 +31,10 @@ test_hostPortNumbers_empty()
 test_parseDockerImages_singleLine()
 test_parseDockerImages_multiLine()
 test_parseDockerImages_empty()
+test_parseDockerVolumes_countAndNames()
+test_parseDockerVolumes_driverAndSize()
+test_parseDockerVolumes_sizeNA_whenDfMissing()
+test_parseDockerVolumes_empty()
 
 print("\n\(_passed) passed, \(_failed) failed")
 if _failed > 0 {
