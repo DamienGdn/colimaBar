@@ -27,6 +27,8 @@ final class StatusBarController {
     private var memMenuItems: [NSMenuItem] = []
     private var langMenuItems: [AppLanguage: NSMenuItem] = [:]
     private var isColimaRunning = false
+    private var containersItem: NSMenuItem!
+    private var containersMenu: NSMenu!
 
     init(manager: ColimaManager) {
         self.manager = manager
@@ -109,6 +111,14 @@ final class StatusBarController {
         openPortainerItem.target = self
         openPortainerItem.isHidden = true
         menu.addItem(openPortainerItem)
+
+        menu.addItem(NSMenuItem.separator())
+
+        containersMenu = NSMenu()
+        containersItem = NSMenuItem(title: L.t("Containers", "Containers"), action: nil, keyEquivalent: "")
+        containersItem.submenu = containersMenu
+        containersItem.isHidden = true
+        menu.addItem(containersItem)
 
         menu.addItem(NSMenuItem.separator())
 
@@ -266,6 +276,58 @@ final class StatusBarController {
         let currentMem = state.memoryGB.map { Int($0.rounded()) } ?? ColimaConfig.desiredMemoryGB
         for item in cpuMenuItems { item.state = item.tag == currentCPU ? .on : .off }
         for item in memMenuItems { item.state = item.tag == currentMem ? .on : .off }
+
+        updateContainersSubmenu(state.containers)
+    }
+
+    private func updateContainersSubmenu(_ containers: [DockerContainer]) {
+        containersMenu.removeAllItems()
+        guard !containers.isEmpty else {
+            containersItem.isHidden = true
+            return
+        }
+
+        let runningCount = containers.filter { $0.isRunning }.count
+        containersItem.title = "\(runningCount)/\(containers.count) \(L.t("containers", "containers"))"
+        containersItem.isHidden = false
+
+        for container in containers {
+            let stateIcon = container.isRunning ? "▶" : "■"
+            let row = NSMenuItem(
+                title: "\(stateIcon) \(container.name)",
+                action: nil, keyEquivalent: "")
+
+            let sub = NSMenu()
+
+            if container.isRunning {
+                let stopItem = NSMenuItem(
+                    title: L.t("Arrêter", "Stop"),
+                    action: #selector(stopContainerAction(_:)),
+                    keyEquivalent: "")
+                stopItem.representedObject = container.name
+                stopItem.target = self
+                sub.addItem(stopItem)
+            } else {
+                let startItem = NSMenuItem(
+                    title: L.t("Démarrer", "Start"),
+                    action: #selector(startContainerAction(_:)),
+                    keyEquivalent: "")
+                startItem.representedObject = container.name
+                startItem.target = self
+                sub.addItem(startItem)
+            }
+
+            let logsItem = NSMenuItem(
+                title: L.t("Voir les logs", "View logs"),
+                action: #selector(openContainerLogs(_:)),
+                keyEquivalent: "")
+            logsItem.representedObject = container.name
+            logsItem.target = self
+            sub.addItem(logsItem)
+
+            row.submenu = sub
+            containersMenu.addItem(row)
+        }
     }
 
     func showLastError(_ message: String) {
@@ -395,5 +457,32 @@ final class StatusBarController {
                 (NSApp.delegate as? AppDelegate)?.showError(error.localizedDescription)
             }
         })
+    }
+
+    @objc private func startContainerAction(_ sender: NSMenuItem) {
+        guard let name = sender.representedObject as? String else { return }
+        manager.startContainer(name) { [weak self] result in
+            if case .failure(let error) = result {
+                self?.showLastError(error.localizedDescription)
+            }
+        }
+    }
+
+    @objc private func stopContainerAction(_ sender: NSMenuItem) {
+        guard let name = sender.representedObject as? String else { return }
+        manager.stopContainer(name) { [weak self] result in
+            if case .failure(let error) = result {
+                self?.showLastError(error.localizedDescription)
+            }
+        }
+    }
+
+    @objc private func openContainerLogs(_ sender: NSMenuItem) {
+        guard let name = sender.representedObject as? String else { return }
+        let script = "tell application \"Terminal\" to do script \"docker logs -f \(name)\""
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+        process.arguments = ["-e", script]
+        try? process.run()
     }
 }
