@@ -18,10 +18,11 @@ macOS menu bar app to manage [Colima](https://github.com/abiosoft/colima) + [Por
 - **Boot summary notification** — "Colima started in 12s — 5 container(s) running"
 - **Stop notification** — confirmation when Colima shuts down
 - **Last error in menu** — `⚠ error message` visible directly in menu, clears on next success
-- **Container list** — shows all Docker containers with state, start/stop/restart/logs per container
-- **Container filter** — toggle between all containers and running only
+- **Containers panel** — rich popover with table view (state, name, image, status columns), opens anchored to the menu bar icon
+- **Container actions** — Start / Stop / Restart / Logs buttons per selected container
+- **Container filter** — toggle All / Running only (segmented control, persisted)
 - **Copy container ID** — one click copies the full container ID to clipboard
-- **Quick logs** — click a container → View logs → Terminal opens with `docker logs -f`
+- **Quick logs** — click a container → Logs → Terminal opens with `docker logs -f`
 - **Real-time CPU & RAM usage** — live aggregate stats from all running containers
 - **Portainer integration** — auto-opens after Colima starts, installs if missing
 - **Profiles** — Minimal (1 CPU / 2 GB), Dev (2 CPU / 4 GB), Heavy (4 CPU / 8 GB)
@@ -61,12 +62,12 @@ open /Applications/ColimaBar.app
 |--------|-----|
 | Start Colima | Click icon → ▶ Start Colima |
 | Stop Colima | Click icon → ■ Stop Colima |
-| View containers | Click icon → N/M containers |
-| Filter containers | containers → Running only / All containers (toggle) |
-| Start/stop a container | containers → container name → Start or Stop |
-| Restart a container | containers → container name → Restart |
-| Copy container ID | containers → container name → Copy ID |
-| View container logs | containers → container name → View logs |
+| View containers | Click icon → N/M containers → (opens panel) |
+| Filter containers | Panel → All / Running toggle |
+| Start/stop a container | Panel → select container → Start or Stop |
+| Restart a container | Panel → select container → Restart |
+| Copy container ID | Panel → select container → Copy ID |
+| View container logs | Panel → select container → Logs |
 | Open Portainer | Click icon → Open Portainer |
 | Install Portainer | Click icon → Install Portainer… (shown when missing) |
 | Apply a profile | Click icon → ⚙ Configuration → Profiles → Minimal / Dev / Heavy |
@@ -119,7 +120,8 @@ Sources/
 └── ColimaBar/                   # AppKit executable
     ├── main.swift               # NSApplication entry point
     ├── AppDelegate.swift        # App lifecycle, SMAppService, notifications, update check trigger
-    └── StatusBarController.swift # NSStatusItem, menu, icon tinting, containers, profiles
+    ├── StatusBarController.swift # NSStatusItem, menu, icon tinting, containers, profiles
+    └── ContainersPanelViewController.swift # NSPopover panel with NSTableView for containers
 Tests/
 └── ColimaBarTests/              # Custom test runner (no Xcode required) — 49 tests
 Resources/
