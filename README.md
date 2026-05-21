@@ -13,19 +13,23 @@ macOS menu bar app to manage [Colima](https://github.com/abiosoft/colima) + [Por
 ## Features
 
 - **Start / Stop Colima** — stops automatically when you quit the app
-- **Colored icon** — green (running), yellow (starting/stopping), grey (stopped)
+- **Adaptive polling** — 5 s refresh when running, 30 s when stopped
+- **Colored icon** — green bubble (running), orange (starting/stopping), white (stopped)
 - **Boot summary notification** — "Colima started in 12s — 5 container(s) running"
 - **Stop notification** — confirmation when Colima shuts down
 - **Last error in menu** — `⚠ error message` visible directly in menu, clears on next success
-- **Container list** — shows all Docker containers with state, start/stop/logs per container
+- **Container list** — shows all Docker containers with state, start/stop/restart/logs per container
+- **Container filter** — toggle between all containers and running only
+- **Copy container ID** — one click copies the full container ID to clipboard
 - **Quick logs** — click a container → View logs → Terminal opens with `docker logs -f`
 - **Real-time CPU & RAM usage** — live aggregate stats from all running containers
 - **Portainer integration** — auto-opens after Colima starts, installs if missing
 - **Profiles** — Minimal (1 CPU / 2 GB), Dev (2 CPU / 4 GB), Heavy (4 CPU / 8 GB)
 - **CPU / Memory fine-tuning** — individual presets beyond profiles
+- **Auto-start Colima** — optional: start Colima automatically when the app launches
 - **Colima update detection** — `🔄 Colima X.Y.Z update available` when brew has a newer version
 - **French / English** — follows system language, manual toggle in Configuration
-- **Launch at login** — app only, Colima starts manually
+- **Launch at login** — app only, Colima auto-start is a separate opt-in setting
 
 ## Requirements
 
@@ -58,12 +62,16 @@ open /Applications/ColimaBar.app
 | Start Colima | Click icon → ▶ Start Colima |
 | Stop Colima | Click icon → ■ Stop Colima |
 | View containers | Click icon → N/M containers |
+| Filter containers | containers → Running only / All containers (toggle) |
 | Start/stop a container | containers → container name → Start or Stop |
+| Restart a container | containers → container name → Restart |
+| Copy container ID | containers → container name → Copy ID |
 | View container logs | containers → container name → View logs |
 | Open Portainer | Click icon → Open Portainer |
 | Install Portainer | Click icon → Install Portainer… (shown when missing) |
 | Apply a profile | Click icon → ⚙ Configuration → Profiles → Minimal / Dev / Heavy |
 | Change CPU/Memory | Click icon → ⚙ Configuration → CPUs or Memory |
+| Auto-start Colima | Click icon → ⚙ Configuration → Auto-start Colima on launch |
 | Change language | Click icon → ⚙ Configuration → Language |
 | Upgrade Colima | Click icon → 🔄 update item (shown when available) |
 | Launch at login | Click icon → Launch at login |
