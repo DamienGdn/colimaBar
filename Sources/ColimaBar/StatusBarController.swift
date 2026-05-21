@@ -359,9 +359,6 @@ final class StatusBarController {
                     "Colima started in \(duration)s — \(running) container(s) running"
                 )
                 appDelegate?.showSuccess(msg)
-                if state.portainerExists {
-                    NSWorkspace.shared.open(URL(string: "https://localhost:9443")!)
-                }
             case .failure(let error):
                 appDelegate?.showError(error.localizedDescription)
                 self.showLastError(error.localizedDescription)
@@ -467,9 +464,6 @@ final class StatusBarController {
                     switch result {
                     case .success(let state):
                         self?.update(state: state)
-                        if state.portainerExists {
-                            NSWorkspace.shared.open(URL(string: "https://localhost:9443")!)
-                        }
                     case .failure(let error):
                         (NSApp.delegate as? AppDelegate)?.showError(error.localizedDescription)
                     }

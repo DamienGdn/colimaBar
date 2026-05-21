@@ -36,7 +36,10 @@ public final class ColimaManager {
 
     public static func portainerExistsInOutput(_ output: String) -> Bool {
         let lines = output.components(separatedBy: .newlines)
-        return lines.contains { $0.trimmingCharacters(in: .whitespaces) == "portainer" }
+        return lines.contains {
+            let t = $0.trimmingCharacters(in: .whitespaces)
+            return t == "portainer" || t == "/portainer"
+        }
     }
 
     // Parses `docker ps -a --format '{{json .}}'` output (one JSON object per line).
