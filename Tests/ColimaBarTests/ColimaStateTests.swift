@@ -163,3 +163,32 @@ func test_colimaConfig() {
     UserDefaults.standard.removeObject(forKey: "colima.desiredCPUs")
     UserDefaults.standard.removeObject(forKey: "colima.desiredMemoryGB")
 }
+
+// MARK: - DockerContainer parsing
+
+private let dockerOneLine = "{\"ID\":\"abc123def456\",\"Names\":\"portainer\",\"State\":\"running\",\"Status\":\"Up 5 minutes\",\"Image\":\"portainer/portainer-ce:latest\"}"
+private let dockerStoppedLine = "{\"ID\":\"def456abc789\",\"Names\":\"nginx\",\"State\":\"exited\",\"Status\":\"Exited (0) 2 hours ago\",\"Image\":\"nginx:latest\"}"
+
+func test_parseDockerContainers_multiLine() {
+    let output = dockerOneLine + "\n" + dockerStoppedLine
+    let containers = ColimaManager.parseDockerContainers(output)
+    check(containers.count == 2, "should parse 2 containers")
+}
+
+func test_parseDockerContainers_running() {
+    let containers = ColimaManager.parseDockerContainers(dockerOneLine)
+    check(containers.count == 1, "1 container")
+    check(containers[0].name == "portainer", "name portainer")
+    check(containers[0].state == DockerContainer.ContainerState.running, "state running")
+    check(containers[0].image == "portainer/portainer-ce:latest", "image")
+}
+
+func test_parseDockerContainers_exited() {
+    let containers = ColimaManager.parseDockerContainers(dockerStoppedLine)
+    check(containers[0].state == DockerContainer.ContainerState.exited, "state exited")
+}
+
+func test_parseDockerContainers_empty() {
+    check(ColimaManager.parseDockerContainers("").isEmpty, "empty → empty array")
+    check(ColimaManager.parseDockerContainers("not json").isEmpty, "invalid → empty array")
+}

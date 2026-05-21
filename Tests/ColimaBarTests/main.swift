@@ -13,6 +13,10 @@ test_fetchStateSync_running_portainerMissing()
 test_fetchStateSync_stopped_skipsDockerCheck()
 test_fetchStateSync_invalidJSON_returnsUnknown()
 test_colimaConfig()
+test_parseDockerContainers_multiLine()
+test_parseDockerContainers_running()
+test_parseDockerContainers_exited()
+test_parseDockerContainers_empty()
 
 print("\n\(_passed) passed, \(_failed) failed")
 if _failed > 0 {

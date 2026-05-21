@@ -30,6 +30,25 @@ public final class ColimaManager {
         return lines.contains { $0.trimmingCharacters(in: .whitespaces) == "portainer" }
     }
 
+    // Parses `docker ps -a --format '{{json .}}'` output (one JSON object per line).
+    public static func parseDockerContainers(_ output: String) -> [DockerContainer] {
+        output.components(separatedBy: .newlines)
+            .filter { !$0.isEmpty }
+            .compactMap { line in
+                guard let data = line.data(using: .utf8),
+                      let c = try? JSONDecoder().decode(DockerContainerJSON.self, from: data)
+                else { return nil }
+                let name = c.Names.hasPrefix("/") ? String(c.Names.dropFirst()) : c.Names
+                return DockerContainer(
+                    id: c.ID,
+                    name: name,
+                    state: DockerContainer.ContainerState(rawValue: c.State) ?? .unknown,
+                    status: c.Status,
+                    image: c.Image
+                )
+            }
+    }
+
     // Parses `docker stats --no-stream --format "{{.CPUPerc}}\t{{.MemUsage}}"` output.
     public static func parseDockerStats(_ output: String) -> ResourceUsage? {
         var totalCPU = 0.0
