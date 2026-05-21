@@ -22,11 +22,12 @@ final class ContainersPanelViewController: NSViewController {
     private var logsBtn:          NSButton!
     private var shellBtn:         NSButton!
 
-    private var allContainers:  [DockerContainer] = []
-    private var displayed:      [DockerContainer] = []
-    private var usage:          ResourceUsage?
-    private var containerStats: [String: ResourceUsage] = [:]
-    private var searchText      = ""
+    private var allContainers:       [DockerContainer] = []
+    private var displayed:           [DockerContainer] = []
+    private var usage:               ResourceUsage?
+    private var containerStats:      [String: ResourceUsage] = [:]
+    private var searchText           = ""
+    private var currentSortDesc:     NSSortDescriptor? = nil
 
     override func loadView() {
         view = NSView(frame: NSRect(x: 0, y: 0, width: 900, height: 500))
@@ -97,6 +98,13 @@ final class ContainersPanelViewController: NSViewController {
             col.title    = title
             col.width    = width
             col.minWidth = 20
+            switch id {
+            case "name":  col.sortDescriptorPrototype = NSSortDescriptor(key: "name",  ascending: true)
+            case "ports": col.sortDescriptorPrototype = NSSortDescriptor(key: "ports", ascending: true)
+            case "cpu":   col.sortDescriptorPrototype = NSSortDescriptor(key: "cpu",   ascending: false)
+            case "ram":   col.sortDescriptorPrototype = NSSortDescriptor(key: "ram",   ascending: false)
+            default: break
+            }
             tableView.addTableColumn(col)
         }
 
@@ -183,16 +191,39 @@ final class ContainersPanelViewController: NSViewController {
         displayed = searchText.isEmpty
             ? base
             : base.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
+        if let sd = currentSortDesc { sortDisplayed(by: sd) }
         tableView?.reloadData()
         updateButtons()
         containerStatLbl?.stringValue = ""
     }
 
+    private func sortDisplayed(by sd: NSSortDescriptor) {
+        displayed.sort { a, b in
+            let asc = sd.ascending
+            switch sd.key {
+            case "name":
+                return asc ? a.name < b.name : a.name > b.name
+            case "ports":
+                return asc ? a.hostPorts < b.hostPorts : a.hostPorts > b.hostPorts
+            case "cpu":
+                let ca = containerStats[a.name]?.cpuPercent ?? 0
+                let cb = containerStats[b.name]?.cpuPercent ?? 0
+                return asc ? ca < cb : ca > cb
+            case "ram":
+                let ra = containerStats[a.name]?.memUsedMiB ?? 0
+                let rb = containerStats[b.name]?.memUsedMiB ?? 0
+                return asc ? ra < rb : ra > rb
+            default:
+                return false
+            }
+        }
+    }
+
     private func refreshStats() {
         if let u = usage {
             statsLabel.stringValue = String(
-                format: "CPU %.1f%%  RAM %@ / %.1f GB",
-                u.cpuPercent, u.memUsedFormatted, u.memTotalGiB)
+                format: "CPU %.1f%%  RAM %@ / %.1f GB (%.0f%%)",
+                u.cpuPercent, u.memUsedFormatted, u.memTotalGiB, u.memUsedPercent)
         } else {
             let running = allContainers.filter { $0.isRunning }.count
             statsLabel.stringValue = "\(running)/\(allContainers.count) containers"
@@ -344,5 +375,13 @@ extension ContainersPanelViewController: NSTableViewDataSource, NSTableViewDeleg
     func tableViewSelectionDidChange(_ notification: Notification) {
         updateButtons()
         fetchSelectedStats()
+    }
+
+    func tableView(_ tableView: NSTableView, sortDescriptorsDidChange oldDescriptors: [NSSortDescriptor]) {
+        guard let sd = tableView.sortDescriptors.first else { return }
+        currentSortDesc = sd
+        sortDisplayed(by: sd)
+        tableView.reloadData()
+        updateButtons()
     }
 }
