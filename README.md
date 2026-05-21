@@ -19,12 +19,13 @@ macOS menu bar app to manage [Colima](https://github.com/abiosoft/colima) + [Por
 - **Crash notification** — alert when a container exits unexpectedly
 - **Last error in menu** — `⚠ error message` visible directly in menu, clears on next success
 - **Containers panel** — rich NSPopover with table view: state, name, image, status, ports, CPU%, RAM columns
+- **Sortable columns** — click any header to sort by name, ports, CPU%, or RAM
 - **Container search** — filter containers by name in real time
 - **Container actions** — Start / Stop / Restart / Logs / Shell per selected container
 - **Shell into container** — opens `docker exec -it <name> sh` in Terminal
 - **Container filter** — toggle All / Running only (persisted)
-- **Per-container CPU & RAM** — live stats per row: CPU%, used / limit / % (refreshed every 5 s)
-- **Real-time aggregate CPU & RAM** — totals shown in panel header
+- **Per-container CPU & RAM** — live stats per row: CPU%, used / limit (%) — refreshed every 5 s
+- **Real-time aggregate CPU & RAM** — totals + global RAM% shown in panel header
 - **Exposed ports** — host port numbers shown per container
 - **Copy container ID** — one click copies the full container ID to clipboard
 - **Quick logs** — opens `docker logs -f` in Terminal
