@@ -1,0 +1,140 @@
+// Sources/ColimaBar/DashboardViewController.swift
+import AppKit
+import ColimaBarCore
+
+final class DashboardViewController: NSSplitViewController {
+    private let sidebarVC = SidebarViewController()
+    private let contentContainer = NSViewController()
+    private var currentContentVC: NSViewController?
+
+    var manager: ColimaManager?
+
+    private lazy var containersVC: ContainersPanelViewController = {
+        let vc = ContainersPanelViewController()
+        wireContainersCallbacks(vc)
+        return vc
+    }()
+    // Stubs replaced phase by phase:
+    lazy var volumeVC: NSViewController   = makeStub("Volume Browser — Phase 2")
+    lazy var composeVC: NSViewController  = makeStub("Compose Editor — Phase 3")
+    lazy var logsVC: NSViewController     = makeStub("Enhanced Logs — Phase 4")
+    lazy var snapshotVC: NSViewController = makeStub("Snapshots — Phase 5")
+    private lazy var settingsVC: SettingsPanelViewController = {
+        let vc = SettingsPanelViewController()
+        wireSettingsCallbacks(vc)
+        return vc
+    }()
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        let sidebar = NSSplitViewItem(sidebarWithViewController: sidebarVC)
+        sidebar.minimumThickness = 180
+        sidebar.maximumThickness = 180
+        addSplitViewItem(sidebar)
+
+        contentContainer.view = NSView()
+        addSplitViewItem(NSSplitViewItem(viewController: contentContainer))
+
+        sidebarVC.onSelectionChange = { [weak self] index in
+            self?.showContent(for: index)
+        }
+        showContent(for: 0)
+    }
+
+    func update(state: ColimaAppState) {
+        if currentContentVC === containersVC {
+            containersVC.update(containers: state.containers, usage: state.usage,
+                                containerStats: state.containerStats,
+                                restartPolicies: state.restartPolicies)
+        }
+        if case .running = state.colima {
+            settingsVC.isColimaRunning = true
+        } else {
+            settingsVC.isColimaRunning = false
+        }
+    }
+
+    private func showContent(for index: Int) {
+        let vc: NSViewController
+        switch index {
+        case 0: vc = containersVC
+        case 1: vc = volumeVC
+        case 2: vc = composeVC
+        case 3: vc = logsVC
+        case 4: vc = settingsVC
+        default: return
+        }
+        guard vc !== currentContentVC else { return }
+        currentContentVC?.view.removeFromSuperview()
+        currentContentVC?.removeFromParent()
+        contentContainer.addChild(vc)
+        vc.view.translatesAutoresizingMaskIntoConstraints = false
+        contentContainer.view.addSubview(vc.view)
+        NSLayoutConstraint.activate([
+            vc.view.topAnchor.constraint(equalTo: contentContainer.view.topAnchor),
+            vc.view.bottomAnchor.constraint(equalTo: contentContainer.view.bottomAnchor),
+            vc.view.leadingAnchor.constraint(equalTo: contentContainer.view.leadingAnchor),
+            vc.view.trailingAnchor.constraint(equalTo: contentContainer.view.trailingAnchor),
+        ])
+        currentContentVC = vc
+    }
+
+    private func makeStub(_ title: String) -> NSViewController {
+        let vc = NSViewController()
+        vc.view = NSView()
+        let lbl = NSTextField(labelWithString: title)
+        lbl.font = .systemFont(ofSize: 16)
+        lbl.textColor = .secondaryLabelColor
+        lbl.translatesAutoresizingMaskIntoConstraints = false
+        vc.view.addSubview(lbl)
+        NSLayoutConstraint.activate([
+            lbl.centerXAnchor.constraint(equalTo: vc.view.centerXAnchor),
+            lbl.centerYAnchor.constraint(equalTo: vc.view.centerYAnchor),
+        ])
+        return vc
+    }
+
+    private func wireContainersCallbacks(_ vc: ContainersPanelViewController) {
+        guard let mgr = manager else { return }
+        vc.onStart   = { name in mgr.startContainer(name) { _ in } }
+        vc.onStop    = { name in mgr.stopContainer(name) { _ in } }
+        vc.onRestart = { name in
+            mgr.stopContainer(name) { result in
+                if case .success = result { mgr.startContainer(name) { _ in } }
+            }
+        }
+        vc.onLogs           = { _ in }  // Wired in Phase 4
+        vc.onShell          = { _, _ in }
+        vc.onFetchImages    = { completion in mgr.fetchImages(completion: completion) }
+        vc.onDeleteImage    = { id, completion in mgr.deleteImage(id, completion: completion) }
+        vc.onPullImage      = { name, completion in mgr.pullImage(name, completion: completion) }
+        vc.onFetchVolumes   = { completion in mgr.fetchVolumes(completion: completion) }
+        vc.onPruneVolumes   = { completion in mgr.pruneVolumes(completion: completion) }
+        vc.onFetchNetworks  = { completion in mgr.fetchNetworks(completion: completion) }
+        vc.onPruneNetworks  = { completion in mgr.pruneNetworks(completion: completion) }
+        vc.onSetRestartPolicy = { policy, name, completion in
+            mgr.setRestartPolicy(policy, container: name, completion: completion)
+        }
+        vc.onInspect        = { _ in }
+        vc.onFetchEnvVars   = { name, completion in mgr.fetchEnvVars(container: name, completion: completion) }
+    }
+
+    private func wireSettingsCallbacks(_ vc: SettingsPanelViewController) {
+        vc.isLoginItemEnabled = (NSApp.delegate as? AppDelegate)?.isLoginItemEnabled() ?? false
+        vc.onApplyConfig     = { [weak self] in self?.restartColima() }
+        vc.onResizeDisk      = { [weak self] in self?.restartColima() }
+        vc.onToggleLoginItem = {
+            (NSApp.delegate as? AppDelegate)?.toggleLoginItem()
+        }
+        vc.onSetLanguage = { _ in }
+    }
+
+    private func restartColima() {
+        guard let mgr = manager else { return }
+        mgr.stopColima(onTransition: { _ in }, completion: { result in
+            if case .success = result {
+                mgr.startColima(onTransition: { _ in }, completion: { _ in })
+            }
+        })
+    }
+}
