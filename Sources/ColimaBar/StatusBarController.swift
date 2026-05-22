@@ -99,6 +99,15 @@ final class StatusBarController {
         containersPanelVC.onPruneVolumes = { [weak self] completion in
             self?.manager.pruneVolumes(completion: completion)
         }
+        containersPanelVC.onSetRestartPolicy = { [weak self] policy, name, completion in
+            self?.manager.setRestartPolicy(policy, container: name, completion: completion)
+        }
+        containersPanelVC.onInspect = { [weak self] name in
+            self?.runInTerminal("docker inspect \(name)")
+        }
+        containersPanelVC.onFetchEnvVars = { [weak self] name, completion in
+            self?.manager.fetchEnvVars(container: name, completion: completion)
+        }
     }
 
     private func setupSettingsPopover() {
@@ -338,7 +347,9 @@ final class StatusBarController {
         containersItem.title = "\(running)/\(containers.count) \(L.t("containers", "containers")) →"
         containersItem.isHidden = false
         if popover?.isShown == true {
-            containersPanelVC.update(containers: containers, usage: lastState.usage, containerStats: lastState.containerStats)
+            containersPanelVC.update(containers: containers, usage: lastState.usage,
+                                     containerStats: lastState.containerStats,
+                                     restartPolicies: lastState.restartPolicies)
         }
     }
 
@@ -488,7 +499,9 @@ final class StatusBarController {
 
     @objc private func openContainersPanel() {
         guard let button = statusItem.button else { return }
-        containersPanelVC.update(containers: lastState.containers, usage: lastState.usage, containerStats: lastState.containerStats)
+        containersPanelVC.update(containers: lastState.containers, usage: lastState.usage,
+                                 containerStats: lastState.containerStats,
+                                 restartPolicies: lastState.restartPolicies)
         if popover.isShown {
             popover.close()
         } else {
