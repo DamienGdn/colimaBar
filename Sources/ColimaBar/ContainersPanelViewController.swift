@@ -38,6 +38,8 @@ final class ContainersPanelViewController: NSViewController {
     private var restartBtn:       NSButton!
     private var logsBtn:          NSButton!
     private var shellBtn:         NSButton!
+    private var envBtn:           NSButton!
+    private var envPopover:       NSPopover?
 
     // Sparkline zone
     private var sparklineZone:                NSView!
@@ -304,8 +306,9 @@ final class ContainersPanelViewController: NSViewController {
         restartBtn = makeBtn(L.t("↺ Restart",  "↺ Restart"), #selector(restartAction))
         logsBtn    = makeBtn(L.t("Logs", "Logs"),             #selector(logsAction))
         shellBtn   = makeBtn(L.t("Shell", "Shell"),           #selector(shellAction))
+        envBtn     = makeBtn(L.t("Env", "Env"),               #selector(envAction))
 
-        let btnStack = NSStackView(views: [startBtn, stopBtn, restartBtn, logsBtn, shellBtn])
+        let btnStack = NSStackView(views: [startBtn, stopBtn, restartBtn, logsBtn, shellBtn, envBtn])
         btnStack.orientation  = .horizontal
         btnStack.spacing      = 5
         btnStack.distribution = .fillEqually
@@ -557,6 +560,7 @@ final class ContainersPanelViewController: NSViewController {
         restartBtn.isEnabled = c?.isRunning == true
         logsBtn.isEnabled    = c != nil
         shellBtn.isEnabled   = c?.isRunning == true
+        envBtn.isEnabled     = c != nil
     }
 
     private func selected() -> DockerContainer? {
@@ -776,6 +780,22 @@ final class ContainersPanelViewController: NSViewController {
     @objc private func shellAction() {
         guard let c = selected() else { return }
         showExecDialog(for: c)
+    }
+
+    @objc private func envAction() {
+        guard let c = selected() else { return }
+        let vc = EnvVarsViewController()
+        vc.containerName = c.name
+        envPopover?.close()
+        let popover = NSPopover()
+        popover.contentViewController = vc
+        popover.behavior               = .semitransient
+        popover.contentSize            = NSSize(width: 500, height: 320)
+        envPopover = popover
+        popover.show(relativeTo: envBtn.bounds, of: envBtn, preferredEdge: .minY)
+        onFetchEnvVars?(c.name) { [weak vc] vars in
+            vc?.loadEnvVars(vars)
+        }
     }
 
     // MARK: - Images actions
