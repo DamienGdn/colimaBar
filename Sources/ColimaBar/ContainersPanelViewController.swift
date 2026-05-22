@@ -1041,7 +1041,16 @@ final class ContainersPanelViewController: NSViewController {
     // MARK: - Compose data
 
     private func refreshCompose() {
+        let selectedName = composeSelected()?.name
         composeOutlineView?.reloadData()
+        if let name = selectedName, let ov = composeOutlineView {
+            for row in 0..<ov.numberOfRows {
+                if let c = ov.item(atRow: row) as? DockerContainer, c.name == name {
+                    ov.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false)
+                    break
+                }
+            }
+        }
         refreshComposeSparklines()
     }
 
