@@ -489,12 +489,17 @@ final class ContainersPanelViewController: NSViewController {
     // MARK: - Containers data
 
     private func applyFilter() {
+        let selectedName = selected()?.name
         let base = ColimaConfig.showAllContainers ? allContainers : allContainers.filter { $0.isRunning }
         displayed = searchText.isEmpty
             ? base
             : base.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
         if let sd = currentSortDesc { sortDisplayed(by: sd) }
         tableView?.reloadData()
+        if let name = selectedName,
+           let idx = displayed.firstIndex(where: { $0.name == name }) {
+            tableView?.selectRowIndexes(IndexSet(integer: idx), byExtendingSelection: false)
+        }
         updateButtons()
         refreshSparklines()
     }
