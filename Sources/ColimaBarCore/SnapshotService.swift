@@ -36,7 +36,7 @@ public final class SnapshotService {
     public init(
         shell: ShellRunner = ProcessShellRunner(),
         colimaPath: String = "/opt/homebrew/bin/colima",
-        diskPath: URL = URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent(".colima/default/disk.qcow2"),
+        diskPath: URL = URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent(".colima/_lima/colima/disk"),
         snapshotDir: URL = URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent(".colima/snapshots")
     ) {
         self.shell = shell
@@ -48,7 +48,7 @@ public final class SnapshotService {
     // MARK: - Static helpers (testable)
 
     public static func parseSnapshot(from url: URL) -> ColimaSnapshot? {
-        guard url.pathExtension == "qcow2" else { return nil }
+        guard url.pathExtension == "snapshot" else { return nil }
         let name = url.deletingPathExtension().lastPathComponent
         let attrs = try? FileManager.default.attributesOfItem(atPath: url.path)
         let date = (attrs?[.modificationDate] as? Date) ?? Date()
@@ -60,7 +60,7 @@ public final class SnapshotService {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime]
         let timestamp = formatter.string(from: Date()).replacingOccurrences(of: ":", with: "-")
-        return dir.appendingPathComponent("\(name)_\(timestamp).qcow2")
+        return dir.appendingPathComponent("\(name)_\(timestamp).snapshot")
     }
 
     // MARK: - Commands (blocking, run on background queue)

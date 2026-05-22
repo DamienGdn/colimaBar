@@ -8,7 +8,7 @@ final class SidebarViewController: NSViewController {
     private let scrollView = NSScrollView()
 
     private let items: [(icon: String, label: String)] = [
-        ("shippingbox.fill",        "Containers"),
+        ("shippingbox.fill",        "Docker"),
         ("internaldrive.fill",      "Volumes"),
         ("doc.text.fill",           "Compose"),
         ("text.alignleft",          "Logs"),

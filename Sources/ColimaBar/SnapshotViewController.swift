@@ -13,6 +13,7 @@ final class SnapshotViewController: NSViewController {
     private let deleteButton = NSButton(title: "Supprimer", target: nil, action: nil)
     private let progressIndicator = NSProgressIndicator()
     private let statusLabel = NSTextField(labelWithString: "")
+    private let emptyLabel = NSTextField(labelWithString: "Aucun snapshot — cliquez « Créer snapshot » pour sauvegarder l'état actuel de la VM")
 
     // State
     private var snapshots: [ColimaSnapshot] = []
@@ -76,7 +77,15 @@ final class SnapshotViewController: NSViewController {
         statusLabel.font = .systemFont(ofSize: 11)
         statusLabel.translatesAutoresizingMaskIntoConstraints = false
 
-        for sub in [scrollView, createButton, restoreButton, deleteButton, progressIndicator, statusLabel] as [NSView] {
+        emptyLabel.textColor = .secondaryLabelColor
+        emptyLabel.font = .systemFont(ofSize: 13)
+        emptyLabel.alignment = .center
+        emptyLabel.lineBreakMode = .byWordWrapping
+        emptyLabel.maximumNumberOfLines = 2
+        emptyLabel.isHidden = true
+        emptyLabel.translatesAutoresizingMaskIntoConstraints = false
+
+        for sub in [scrollView, createButton, restoreButton, deleteButton, progressIndicator, statusLabel, emptyLabel] as [NSView] {
             view.addSubview(sub)
         }
 
@@ -106,12 +115,17 @@ final class SnapshotViewController: NSViewController {
             statusLabel.centerYAnchor.constraint(equalTo: createButton.centerYAnchor),
             statusLabel.leadingAnchor.constraint(equalTo: progressIndicator.trailingAnchor, constant: 8),
             statusLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -12),
+
+            emptyLabel.centerXAnchor.constraint(equalTo: scrollView.centerXAnchor),
+            emptyLabel.centerYAnchor.constraint(equalTo: scrollView.centerYAnchor),
+            emptyLabel.widthAnchor.constraint(lessThanOrEqualTo: scrollView.widthAnchor, constant: -40),
         ])
     }
 
     private func reload() {
         snapshots = snapshotService.listSnapshots()
         tableView.reloadData()
+        emptyLabel.isHidden = !snapshots.isEmpty
         updateButtonStates()
     }
 

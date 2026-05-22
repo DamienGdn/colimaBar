@@ -68,7 +68,7 @@ test_logFilter_emptyQuery_returnsAll()
 test_logFilter_extractErrorLines()
 
 test_snapshotService_parseSnapshotFilename()
-test_snapshotService_skipNonQcow2()
+test_snapshotService_skipNonSnapshot()
 test_snapshotService_snapshotPath_construction()
 test_snapshotService_createCallsStopCopyStart()
 
