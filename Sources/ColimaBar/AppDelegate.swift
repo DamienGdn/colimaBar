@@ -6,17 +6,21 @@ import ColimaBarCore
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var manager: ColimaManager!
     var statusBarController: StatusBarController!
+    var dashboardWindowController: DashboardWindowController!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         requestNotificationPermission()
         manager = ColimaManager()
         statusBarController = StatusBarController(manager: manager)
+        dashboardWindowController = DashboardWindowController(manager: manager)
+        statusBarController.onStateUpdate = { [weak self] state in
+            self?.dashboardWindowController.update(state: state)
+        }
         manager.startPolling()
         if ColimaConfig.autoStartOnLaunch {
             manager.startColima(onTransition: { [weak self] state in
                 self?.statusBarController.update(state: state)
             }, completion: { [weak self] _ in
-                // state update handled by polling
                 _ = self
             })
         }
