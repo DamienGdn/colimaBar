@@ -53,6 +53,12 @@ test_listFiles_totalLineFiltered()
 test_execShellCommand_containerNotRunning()
 test_execShellCommand_callsDockerExec()
 
+test_findComposeFile_withWorkingDirAndConfigFiles()
+test_findComposeFile_withAbsoluteConfigFiles()
+test_findComposeFile_noLabels()
+test_findComposeFile_missingWorkingDir()
+test_composeProjects_groupsContainersByProject()
+
 print("\n\(_passed) passed, \(_failed) failed")
 if _failed > 0 {
     exit(1)
