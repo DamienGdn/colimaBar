@@ -24,7 +24,7 @@ macOS menu bar app to manage [Colima](https://github.com/abiosoft/colima) + [Por
 
 ![Settings](docs/screenshot-settings.png)
 
-![macOS 13+](https://img.shields.io/badge/macOS-13%2B-blue) ![Apple Silicon](https://img.shields.io/badge/Apple%20Silicon-M1%2FM2%2FM3-green) ![Swift](https://img.shields.io/badge/Swift-5.9-orange) ![v1.8.0](https://img.shields.io/badge/version-1.8.0-informational)
+![macOS 13+](https://img.shields.io/badge/macOS-13%2B-blue) ![Apple Silicon](https://img.shields.io/badge/Apple%20Silicon-M1%2FM2%2FM3-green) ![Swift](https://img.shields.io/badge/Swift-5.9-orange) ![v1.9.0](https://img.shields.io/badge/version-1.9.0-informational)
 
 ---
 
@@ -57,6 +57,14 @@ macOS menu bar app to manage [Colima](https://github.com/abiosoft/colima) + [Por
 - **Quick filter by image** — context menu → "Filter by this image" fills the search field instantly
 - **Exposed ports** — host port numbers shown per container
 - **Copy container ID** — one click copies the full container ID to clipboard
+- **In-app logs viewer** — floating window streams `docker logs -f` inline; follow/stop toggle, clear button, 5 000-line cap
+- **Networks tab** — lists Docker networks (driver, scope); prune unused networks
+- **Compose tab** — groups containers by Docker Compose project; shows count and status (all running / stopped / partial)
+- **Polling interval presets** — Rapide (2 s) / Normal (5 s, default) / Lent (15 s) configurable in Settings
+- **Compact mode** — optionally show running container count next to the menu bar icon (`▶ N`)
+- **Disk resize** — resize Colima disk from Settings without CLI
+- **Resource alerts** — notification when CPU > 80 % or RAM > 90 % for 2 consecutive cycles
+- **Multi-instance switcher** — "Instance" submenu switches between Colima instances
 - **Quick logs** — opens `docker logs -f` in Terminal
 - **Portainer integration** — auto-opens after Colima starts, installs if missing
 - **docker system prune** — `🗑 Prune Docker…` with confirmation dialog

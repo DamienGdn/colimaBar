@@ -1,5 +1,20 @@
 # Changelog
 
+## v1.9.0 — 2026-05-22
+
+### New features
+
+- **In-app logs viewer** — floating NSWindow (no Terminal needed): streams `docker logs -f`, follow/stop toggle, clear button, 5 000-line cap, dark background monospace display
+- **Networks tab** — new 5th tab in the containers panel: lists Docker networks with driver and scope; "Prune networks" button removes unused ones
+- **Compose tab** — groups containers by their Docker Compose project (derived from `com.docker.compose.project` label); shows project name, container count, and status (All running / Stopped / N/M running)
+- **Polling interval presets** — Settings: choose Rapide (2 s / 10 s), Normal (5 s / 30 s default), or Lent (15 s / 60 s); takes effect on next poll cycle
+- **Compact mode** — Settings: show running container count next to the icon in the menu bar (`▶ N`)
+- **Disk resize** — Settings: "Resize disk…" button (enabled when Colima is running) triggers a restart with the configured disk size
+- **Resource alerts** — system notification when CPU > 80 % or RAM > 90 % for 2 consecutive polling cycles
+- **Multi-instance switcher** — "Instance" submenu in the menu bar: switch between Colima instances with a checkmark on the active one
+
+---
+
 ## v1.8.0 — 2026-05-22
 
 ### New features
