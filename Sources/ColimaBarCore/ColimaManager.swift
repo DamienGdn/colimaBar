@@ -462,6 +462,24 @@ public final class ColimaManager {
         }
     }
 
+    public func fetchEnvVars(container: String, completion: @escaping ([String]) -> Void) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            let result = self.shell.run(self.dockerPath, args: [
+                "inspect", "--format", "{{json .Config.Env}}", container
+            ])
+            guard result.exitCode == 0,
+                  let data = result.output
+                      .trimmingCharacters(in: .whitespacesAndNewlines)
+                      .data(using: .utf8),
+                  let envArray = try? JSONDecoder().decode([String].self, from: data)
+            else {
+                DispatchQueue.main.async { completion([]) }
+                return
+            }
+            DispatchQueue.main.async { completion(envArray) }
+        }
+    }
+
     // MARK: - Private helpers
 
     private func waitForSocket() {
