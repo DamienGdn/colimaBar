@@ -580,12 +580,15 @@ final class ContainersPanelViewController: NSViewController {
         if let s = containerStats[c.name] {
             cpuValueLbl.stringValue = String(format: "CPU %.1f%%", s.cpuPercent)
             ramValueLbl.stringValue = "RAM \(s.memUsedFormatted)"
+        } else {
+            cpuValueLbl.stringValue = "CPU …"
+            ramValueLbl.stringValue = "RAM …"
         }
     }
 
     // MARK: - Images data
 
-    func refreshImages() {
+    private func refreshImages() {
         imageStatusLbl?.stringValue = L.t("Chargement…", "Loading…")
         onFetchImages? { [weak self] images in
             self?.allImages = images
@@ -597,7 +600,7 @@ final class ContainersPanelViewController: NSViewController {
 
     // MARK: - Volumes data
 
-    func refreshVolumes() {
+    private func refreshVolumes() {
         volumeStatusLbl?.stringValue = L.t("Chargement…", "Loading…")
         onFetchVolumes? { [weak self] volumes in
             self?.allVolumes = volumes
@@ -629,11 +632,14 @@ final class ContainersPanelViewController: NSViewController {
     @objc private func pullAction() {
         let name = pullField.stringValue.trimmingCharacters(in: .whitespaces)
         guard !name.isEmpty else { return }
+        guard let onPullImage else {
+            return
+        }
         pullBtn.isEnabled = false
         pullSpinner.isHidden = false
         pullSpinner.startAnimation(nil)
         imageStatusLbl.stringValue = L.t("Pull en cours…", "Pulling…")
-        onPullImage?(name) { [weak self] result in
+        onPullImage(name) { [weak self] result in
             self?.pullBtn.isEnabled = true
             self?.pullSpinner.stopAnimation(nil)
             self?.pullSpinner.isHidden = true
