@@ -143,18 +143,21 @@ Sources/
 ├── ColimaBarCore/               # Pure Foundation library (testable)
 │   ├── ShellRunner.swift        # Process execution + Homebrew PATH injection
 │   ├── ColimaState.swift        # State model + ResourceUsage + DockerContainer
-│   ├── DockerContainer.swift    # Docker container model + ports parser
-│   ├── ColimaManager.swift      # Polling, start/stop/prune, container commands, update check
+│   ├── DockerContainer.swift    # Docker container model + ports parser + health
+│   ├── DockerImage.swift        # Docker image model
+│   ├── DockerVolume.swift       # Docker volume model
+│   ├── ColimaManager.swift      # Polling, start/stop/prune, container/image/volume commands
 │   ├── ColimaConfig.swift       # CPU/memory/disk/instance preferences + ColimaProfile presets
 │   └── Localization.swift       # FR/EN strings + language preference
 └── ColimaBar/                   # AppKit executable
     ├── main.swift               # NSApplication entry point
     ├── AppDelegate.swift        # App lifecycle, SMAppService, notifications
     ├── StatusBarController.swift # NSStatusItem, menu, icon, crash detection
-    ├── ContainersPanelViewController.swift # Containers NSPopover (search, table, actions, stats)
+    ├── SparklineView.swift      # NSView area chart for CPU/RAM history
+    ├── ContainersPanelViewController.swift # Containers/Images/Volumes NSPopover
     └── SettingsPanelViewController.swift   # Settings NSPopover (profiles, resources, language)
 Tests/
-└── ColimaBarTests/              # Custom test runner (no Xcode required) — 49 tests
+└── ColimaBarTests/              # Custom test runner (no Xcode required) — 74 tests
 Resources/
 ├── Info.plist                   # LSUIElement=true, bundle metadata
 ├── AppIcon.icns                 # App icon (all sizes)
