@@ -104,6 +104,12 @@ final class StatusBarController {
         containersPanelVC.onPruneVolumes = { [weak self] completion in
             self?.manager.pruneVolumes(completion: completion)
         }
+        containersPanelVC.onFetchNetworks = { [weak self] completion in
+            self?.manager.fetchNetworks(completion: completion)
+        }
+        containersPanelVC.onPruneNetworks = { [weak self] completion in
+            self?.manager.pruneNetworks(completion: completion)
+        }
         containersPanelVC.onSetRestartPolicy = { [weak self] policy, name, completion in
             self?.manager.setRestartPolicy(policy, container: name, completion: completion)
         }
