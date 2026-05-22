@@ -11,6 +11,8 @@ public struct ColimaConfig {
     private static let autoStartKey    = "colima.autoStartOnLaunch"
     private static let showAllKey      = "colima.showAllContainers"
     private static let instanceKey     = "colima.activeInstanceName"
+    private static let pollingKey      = "colima.pollingPreset"
+    private static let compactModeKey  = "colima.compactMode"
 
     public static var autoStartOnLaunch: Bool {
         get { UserDefaults.standard.bool(forKey: autoStartKey) }
@@ -53,6 +55,19 @@ public struct ColimaConfig {
         get { UserDefaults.standard.string(forKey: instanceKey) ?? "default" }
         set { UserDefaults.standard.set(newValue, forKey: instanceKey) }
     }
+
+    public static var pollingPreset: PollingPreset {
+        get {
+            let raw = UserDefaults.standard.string(forKey: pollingKey) ?? ""
+            return PollingPreset(rawValue: raw) ?? .normal
+        }
+        set { UserDefaults.standard.set(newValue.rawValue, forKey: pollingKey) }
+    }
+
+    public static var compactModeEnabled: Bool {
+        get { UserDefaults.standard.bool(forKey: compactModeKey) }
+        set { UserDefaults.standard.set(newValue, forKey: compactModeKey) }
+    }
 }
 
 public struct ColimaProfile: Equatable {
@@ -66,4 +81,24 @@ public struct ColimaProfile: Equatable {
         ColimaProfile(name: "Dev",     nameFR: "Dev",     cpus: 2, memoryGB: 4),
         ColimaProfile(name: "Heavy",   nameFR: "Intense", cpus: 4, memoryGB: 8),
     ]
+}
+
+public enum PollingPreset: String, CaseIterable {
+    case fast   = "fast"   // 2s running / 10s stopped
+    case normal = "normal" // 5s running / 30s stopped (default)
+    case slow   = "slow"   // 15s running / 60s stopped
+
+    public var runningInterval: TimeInterval {
+        switch self { case .fast: return 2; case .normal: return 5; case .slow: return 15 }
+    }
+    public var stoppedInterval: TimeInterval {
+        switch self { case .fast: return 10; case .normal: return 30; case .slow: return 60 }
+    }
+    public var label: String {
+        switch self {
+        case .fast:   return L.t("Rapide", "Fast")
+        case .normal: return L.t("Normal", "Normal")
+        case .slow:   return L.t("Lent", "Slow")
+        }
+    }
 }
