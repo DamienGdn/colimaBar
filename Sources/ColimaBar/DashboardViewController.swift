@@ -14,11 +14,10 @@ final class DashboardViewController: NSSplitViewController {
         wireContainersCallbacks(vc)
         return vc
     }()
-    // Stubs replaced phase by phase:
     lazy var volumeVC: VolumeBrowserViewController = VolumeBrowserViewController()
     lazy var composeVC: ComposeEditorViewController = ComposeEditorViewController()
     lazy var logsVC: EnhancedLogsViewController = EnhancedLogsViewController()
-    lazy var snapshotVC: NSViewController = makeStub("Snapshots — Phase 5")
+    lazy var snapshotVC: SnapshotViewController = SnapshotViewController()
     private lazy var settingsVC: SettingsPanelViewController = {
         let vc = SettingsPanelViewController()
         wireSettingsCallbacks(vc)
@@ -58,7 +57,7 @@ final class DashboardViewController: NSSplitViewController {
     }
 
     func selectSidebarItem(at index: Int) {
-        guard index >= 0 && index < 5 else { return }
+        guard index >= 0 && index < 6 else { return }
         sidebarVC.selectItem(at: index)
         showContent(for: index)
     }
@@ -70,7 +69,8 @@ final class DashboardViewController: NSSplitViewController {
         case 1: vc = volumeVC
         case 2: vc = composeVC
         case 3: vc = logsVC
-        case 4: vc = settingsVC
+        case 4: vc = snapshotVC
+        case 5: vc = settingsVC
         default: return
         }
         guard vc !== currentContentVC else { return }
@@ -86,21 +86,6 @@ final class DashboardViewController: NSSplitViewController {
             vc.view.trailingAnchor.constraint(equalTo: contentContainer.view.trailingAnchor),
         ])
         currentContentVC = vc
-    }
-
-    private func makeStub(_ title: String) -> NSViewController {
-        let vc = NSViewController()
-        vc.view = NSView()
-        let lbl = NSTextField(labelWithString: title)
-        lbl.font = .systemFont(ofSize: 16)
-        lbl.textColor = .secondaryLabelColor
-        lbl.translatesAutoresizingMaskIntoConstraints = false
-        vc.view.addSubview(lbl)
-        NSLayoutConstraint.activate([
-            lbl.centerXAnchor.constraint(equalTo: vc.view.centerXAnchor),
-            lbl.centerYAnchor.constraint(equalTo: vc.view.centerYAnchor),
-        ])
-        return vc
     }
 
     private func wireContainersCallbacks(_ vc: ContainersPanelViewController) {

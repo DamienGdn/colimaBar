@@ -8,11 +8,12 @@ final class SidebarViewController: NSViewController {
     private let scrollView = NSScrollView()
 
     private let items: [(icon: String, label: String)] = [
-        ("shippingbox.fill",  "Containers"),
-        ("internaldrive.fill","Volumes"),
-        ("doc.text.fill",     "Compose"),
-        ("text.alignleft",    "Logs"),
-        ("gear",              "Settings"),
+        ("shippingbox.fill",        "Containers"),
+        ("internaldrive.fill",      "Volumes"),
+        ("doc.text.fill",           "Compose"),
+        ("text.alignleft",          "Logs"),
+        ("camera.viewfinder",       "Snapshots"),
+        ("gear",                    "Settings"),
     ]
 
     override func loadView() { view = NSView() }
