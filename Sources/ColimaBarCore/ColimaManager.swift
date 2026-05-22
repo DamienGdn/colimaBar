@@ -57,7 +57,8 @@ public final class ColimaManager {
                     state: DockerContainer.ContainerState(rawValue: c.State) ?? .unknown,
                     status: c.Status,
                     image: c.Image,
-                    ports: c.Ports ?? ""
+                    ports: c.Ports ?? "",
+                    labels: c.Labels ?? ""
                 )
             }
     }

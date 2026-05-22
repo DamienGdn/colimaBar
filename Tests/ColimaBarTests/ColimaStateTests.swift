@@ -417,3 +417,25 @@ func test_parseDockerNetworks_empty() {
     check(ColimaManager.parseDockerNetworks("").isEmpty, "empty → empty array")
     check(ColimaManager.parseDockerNetworks("not json").isEmpty, "invalid → empty array")
 }
+
+// MARK: - DockerContainer composeProject tests
+
+func test_composeProject_found() {
+    let c = DockerContainer(id: "x", name: "myapp-web-1", state: .running, status: "Up",
+                            image: "nginx", ports: "",
+                            labels: "com.docker.compose.project=myapp,com.docker.compose.service=web")
+    checkEqual(c.composeProject, "myapp", "composeProject = myapp")
+}
+
+func test_composeProject_nil_noLabel() {
+    let c = DockerContainer(id: "x", name: "portainer", state: .running, status: "Up",
+                            image: "portainer/portainer-ce", ports: "", labels: "")
+    checkNil(c.composeProject, "no compose label → nil")
+}
+
+func test_composeProject_nil_otherLabels() {
+    let c = DockerContainer(id: "x", name: "x", state: .running, status: "",
+                            image: "", ports: "",
+                            labels: "maintainer=nginx,version=1.0")
+    checkNil(c.composeProject, "other labels but no compose project → nil")
+}

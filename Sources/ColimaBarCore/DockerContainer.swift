@@ -16,14 +16,16 @@ public struct DockerContainer: Equatable {
     public let status: String
     public let image: String
     public let ports: String
+    public let labels: String   // raw comma-separated "key=value" label string
 
-    public init(id: String, name: String, state: ContainerState, status: String, image: String, ports: String) {
+    public init(id: String, name: String, state: ContainerState, status: String, image: String, ports: String, labels: String = "") {
         self.id = id
         self.name = name
         self.state = state
         self.status = status
         self.image = image
         self.ports = ports
+        self.labels = labels
     }
 
     public var isRunning: Bool { state == .running }
@@ -57,6 +59,16 @@ public struct DockerContainer: Equatable {
             .map { $0.trimmingCharacters(in: .whitespaces) }
             .compactMap { Int($0) }
     }
+
+    // Extracts Docker Compose project name from labels (com.docker.compose.project=<name>)
+    public var composeProject: String? {
+        let prefix = "com.docker.compose.project="
+        guard let kv = labels.components(separatedBy: ",").first(where: { $0.hasPrefix(prefix) }) else {
+            return nil
+        }
+        let v = String(kv.dropFirst(prefix.count))
+        return v.isEmpty ? nil : v
+    }
 }
 
 struct DockerContainerJSON: Codable {
@@ -66,4 +78,5 @@ struct DockerContainerJSON: Codable {
     let Status: String
     let Image: String
     let Ports: String?
+    let Labels: String?   // "key=value,key=value,..."
 }

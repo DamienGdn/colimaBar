@@ -43,6 +43,9 @@ test_parseRestartPolicies_empty()
 test_parseRestartPolicies_emptyPolicy()
 test_parseDockerNetworks_multiple()
 test_parseDockerNetworks_empty()
+test_composeProject_found()
+test_composeProject_nil_noLabel()
+test_composeProject_nil_otherLabels()
 
 print("\n\(_passed) passed, \(_failed) failed")
 if _failed > 0 {
