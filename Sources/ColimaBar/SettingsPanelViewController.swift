@@ -6,6 +6,7 @@ final class SettingsPanelViewController: NSViewController {
     var onApplyConfig:     (() -> Void)?
     var onSetLanguage:     ((AppLanguage) -> Void)?
     var onToggleLoginItem: (() -> Void)?
+    var onResizeDisk:      (() -> Void)?
 
     var isColimaRunning    = false
     var isLoginItemEnabled = false
@@ -18,9 +19,12 @@ final class SettingsPanelViewController: NSViewController {
     private var langControl:    NSSegmentedControl!
     private var autoStartCheck: NSButton!
     private var loginCheck:     NSButton!
+    private var pollingControl: NSSegmentedControl!
+    private var compactCheck:   NSButton!
+    private var resizeDiskBtn:  NSButton!
 
     override func loadView() {
-        view = NSView(frame: NSRect(x: 0, y: 0, width: 420, height: 420))
+        view = NSView(frame: NSRect(x: 0, y: 0, width: 420, height: 520))
     }
 
     override func viewDidLoad() {
@@ -49,6 +53,13 @@ final class SettingsPanelViewController: NSViewController {
 
         autoStartCheck.state = ColimaConfig.autoStartOnLaunch ? .on : .off
         loginCheck.state     = isLoginItemEnabled ? .on : .off
+
+        let preset = ColimaConfig.pollingPreset
+        for (i, p) in PollingPreset.allCases.enumerated() {
+            pollingControl.setSelected(p == preset, forSegment: i)
+        }
+        compactCheck.state      = ColimaConfig.compactModeEnabled ? .on : .off
+        resizeDiskBtn.isEnabled = isColimaRunning
     }
 
     // MARK: - UI
@@ -104,6 +115,13 @@ final class SettingsPanelViewController: NSViewController {
         outer.addArrangedSubview(header(L.t("Disque", "Disk")))
         diskControl = seg(ColimaConfig.diskOptions.map { "\($0) GB" }, #selector(diskChanged(_:)))
         outer.addArrangedSubview(diskControl)
+
+        resizeDiskBtn = NSButton(
+            title: L.t("Redimensionner le disque…", "Resize disk…"),
+            target: self, action: #selector(resizeDiskTapped))
+        resizeDiskBtn.bezelStyle  = .rounded
+        resizeDiskBtn.controlSize = .small
+        outer.addArrangedSubview(resizeDiskBtn)
         outer.addArrangedSubview(sep())
 
         // Language
@@ -111,6 +129,17 @@ final class SettingsPanelViewController: NSViewController {
         langControl = seg([L.t("Système", "System"), "Français", "English"], #selector(langChanged(_:)))
         outer.addArrangedSubview(langControl)
         outer.addArrangedSubview(sep())
+
+        outer.addArrangedSubview(header(L.t("Intervalle de polling", "Polling interval")))
+        pollingControl = seg(PollingPreset.allCases.map { $0.label }, #selector(pollingChanged(_:)))
+        outer.addArrangedSubview(pollingControl)
+        outer.addArrangedSubview(sep())
+
+        compactCheck = NSButton(
+            checkboxWithTitle: L.t("Afficher le nombre de containers actifs", "Show running container count"),
+            target: self, action: #selector(compactToggled))
+        compactCheck.controlSize = .small
+        outer.addArrangedSubview(compactCheck)
 
         // Toggles
         autoStartCheck = NSButton(
@@ -198,6 +227,27 @@ final class SettingsPanelViewController: NSViewController {
     @objc private func loginToggled() {
         onToggleLoginItem?()
         loginCheck.state = isLoginItemEnabled ? .on : .off
+    }
+
+    @objc private func pollingChanged(_ sender: NSSegmentedControl) {
+        ColimaConfig.pollingPreset = PollingPreset.allCases[sender.selectedSegment]
+    }
+
+    @objc private func compactToggled() {
+        ColimaConfig.compactModeEnabled = compactCheck.state == .on
+    }
+
+    @objc private func resizeDiskTapped() {
+        let alert = NSAlert()
+        alert.messageText     = L.t("Redimensionner le disque", "Resize disk")
+        alert.informativeText = L.t(
+            "Le disque sera redimensionné à \(ColimaConfig.desiredDiskGB) GB. Colima va redémarrer (30–60 s).",
+            "Disk will be resized to \(ColimaConfig.desiredDiskGB) GB. Colima will restart (30–60 s).")
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: L.t("Redimensionner", "Resize"))
+        alert.addButton(withTitle: L.t("Annuler", "Cancel"))
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        onResizeDisk?()
     }
 
     private func syncProfileHighlight() {

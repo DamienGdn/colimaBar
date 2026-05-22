@@ -32,6 +32,10 @@ final class StatusBarController {
     private var settingsPanelVC: SettingsPanelViewController!
     private var previousContainerStates: [String: DockerContainer.ContainerState] = [:]
     private let logsWindowController = LogsWindowController()
+    private var consecutiveHighCPU:   Int      = 0
+    private var consecutiveHighRAM:   Int      = 0
+    private var lastKnownInstances:   [String] = ["default"]
+    private var instanceSubmenuItem:  NSMenuItem?
 
     init(manager: ColimaManager) {
         self.manager = manager
@@ -119,9 +123,12 @@ final class StatusBarController {
         settingsPopover.contentViewController = settingsPanelVC
         settingsPopover.behavior = .transient
         settingsPopover.animates = true
-        settingsPopover.contentSize = NSSize(width: 420, height: 420)
+        settingsPopover.contentSize = NSSize(width: 420, height: 520)
 
         settingsPanelVC.onApplyConfig = { [weak self] in self?.restartWithNewConfig() }
+        settingsPanelVC.onResizeDisk = { [weak self] in
+            self?.restartWithNewConfig()
+        }
         settingsPanelVC.onToggleLoginItem = { [weak self] in
             (NSApp.delegate as? AppDelegate)?.toggleLoginItem()
             if let enabled = (NSApp.delegate as? AppDelegate)?.isLoginItemEnabled() {
@@ -175,6 +182,11 @@ final class StatusBarController {
             action: #selector(stopColima), keyEquivalent: "")
         stopItem.target = self
         menu.addItem(stopItem)
+
+        let instanceItem = NSMenuItem(title: L.t("Instance", "Instance"), action: nil, keyEquivalent: "")
+        instanceItem.submenu = NSMenu()
+        instanceSubmenuItem  = instanceItem
+        menu.addItem(instanceItem)
 
         menu.addItem(NSMenuItem.separator())
 
@@ -250,17 +262,57 @@ final class StatusBarController {
         updateIcon(colima: state.colima)
         updateMenuItems(state: state)
         settingsPanelVC?.isColimaRunning = isColimaRunning
+
+        // Resource alerts — fire notification after 2 consecutive cycles above threshold
+        if let u = state.usage {
+            if u.cpuPercent > 80 {
+                consecutiveHighCPU += 1
+                if consecutiveHighCPU == 2 {
+                    let msg = L.t("CPU élevé : \(String(format: "%.0f%%", u.cpuPercent))",
+                                  "High CPU: \(String(format: "%.0f%%", u.cpuPercent))")
+                    (NSApp.delegate as? AppDelegate)?.showError(msg)
+                    consecutiveHighCPU = 0
+                }
+            } else { consecutiveHighCPU = 0 }
+
+            if u.memUsedPercent > 90 {
+                consecutiveHighRAM += 1
+                if consecutiveHighRAM == 2 {
+                    let msg = L.t("RAM élevée : \(String(format: "%.0f%%", u.memUsedPercent))",
+                                  "High RAM: \(String(format: "%.0f%%", u.memUsedPercent))")
+                    (NSApp.delegate as? AppDelegate)?.showError(msg)
+                    consecutiveHighRAM = 0
+                }
+            } else { consecutiveHighRAM = 0 }
+        }
+
+        // Refresh instance list cache when running
+        if case .running = state.colima {
+            manager.listInstances { [weak self] names in
+                self?.lastKnownInstances = names
+                self?.rebuildInstanceSubmenu()
+            }
+        }
     }
 
     private func updateIcon(colima: ColimaRunningState) {
         guard let button = statusItem.button else { return }
         let bubbleColor: NSColor
         switch colima {
-        case .running:             bubbleColor = .systemGreen
-        case .stopped, .unknown:   bubbleColor = .white
-        case .transitioning:       bubbleColor = .systemOrange
+        case .running:           bubbleColor = .systemGreen
+        case .stopped, .unknown: bubbleColor = .white
+        case .transitioning:     bubbleColor = .systemOrange
         }
         button.image = colimaIcon(bubbleColor: bubbleColor)
+
+        if ColimaConfig.compactModeEnabled, case .running = colima {
+            let running = lastState.containers.filter { $0.isRunning }.count
+            button.title         = " ▶\(running)"
+            button.imagePosition = .imageLeft
+        } else {
+            button.title         = ""
+            button.imagePosition = .imageOnly
+        }
     }
 
     private func colimaIcon(bubbleColor: NSColor) -> NSImage {
@@ -352,6 +404,26 @@ final class StatusBarController {
                                      containerStats: lastState.containerStats,
                                      restartPolicies: lastState.restartPolicies)
         }
+    }
+
+    private func rebuildInstanceSubmenu() {
+        guard let submenu = instanceSubmenuItem?.submenu else { return }
+        submenu.removeAllItems()
+        let current = ColimaConfig.activeInstanceName
+        for name in lastKnownInstances {
+            let item = NSMenuItem(title: name, action: #selector(switchInstance(_:)), keyEquivalent: "")
+            item.target = self
+            item.state  = name == current ? .on : .off
+            submenu.addItem(item)
+        }
+    }
+
+    @objc private func switchInstance(_ sender: NSMenuItem) {
+        let name = sender.title
+        guard name != ColimaConfig.activeInstanceName else { return }
+        ColimaConfig.activeInstanceName = name
+        manager.stopPolling()
+        manager.startPolling()
     }
 
     func showLastError(_ message: String) {
