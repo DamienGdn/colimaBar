@@ -200,7 +200,6 @@ final class ContainersPanelViewController: NSViewController {
 
         for (id, title, width) in [
             ("state",  "",                               22.0),
-            ("health", "",                               22.0),
             ("name",   L.t("Nom", "Name"),             160.0),
             ("image",  L.t("Image", "Image"),           150.0),
             ("status", L.t("Statut", "Status"),          90.0),
@@ -870,13 +869,6 @@ extension ContainersPanelViewController: NSTableViewDataSource, NSTableViewDeleg
         case "state":
             cell.textField?.stringValue = c.isRunning ? "▶" : "■"
             cell.textField?.textColor   = c.isRunning ? .systemGreen : .tertiaryLabelColor
-        case "health":
-            switch c.health {
-            case .healthy:   cell.textField?.stringValue = "●"; cell.textField?.textColor = .systemGreen
-            case .unhealthy: cell.textField?.stringValue = "●"; cell.textField?.textColor = .systemRed
-            case .starting:  cell.textField?.stringValue = "●"; cell.textField?.textColor = .systemYellow
-            case nil:        cell.textField?.stringValue = ""; cell.textField?.textColor = .clear
-            }
         case "name":
             cell.textField?.stringValue = c.name
             cell.textField?.textColor   = .labelColor
