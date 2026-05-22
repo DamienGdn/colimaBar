@@ -156,6 +156,19 @@ public final class ColimaManager {
         return result
     }
 
+    // Parses all instance names from `colima list --json` NDJSON output.
+    public static func parseInstanceNames(_ output: String) -> [String] {
+        let names = output.components(separatedBy: .newlines)
+            .filter { !$0.isEmpty }
+            .compactMap { line -> String? in
+                guard let data = line.data(using: .utf8),
+                      let entry = try? JSONDecoder().decode(ColimaListEntry.self, from: data)
+                else { return nil }
+                return entry.name
+            }
+        return names.isEmpty ? ["default"] : names
+    }
+
     // Parses `docker stats --no-stream --format "{{.CPUPerc}}\t{{.MemUsage}}"` output.
     public static func parseDockerStats(_ output: String) -> ResourceUsage? {
         var totalCPU = 0.0
@@ -219,7 +232,8 @@ public final class ColimaManager {
             let state = self.fetchStateSync()
             self.isCurrentlyRunning = state.colima == .running
             DispatchQueue.main.async { self.onStateChange?(state) }
-            let interval: TimeInterval = self.isCurrentlyRunning ? 5.0 : 30.0
+            let preset = ColimaConfig.pollingPreset
+            let interval: TimeInterval = self.isCurrentlyRunning ? preset.runningInterval : preset.stoppedInterval
             let t = DispatchSource.makeTimerSource(queue: .global(qos: .background))
             t.schedule(deadline: .now() + interval)
             t.setEventHandler { [weak self] in
@@ -477,6 +491,14 @@ public final class ColimaManager {
                 return
             }
             DispatchQueue.main.async { completion(envArray) }
+        }
+    }
+
+    public func listInstances(completion: @escaping ([String]) -> Void) {
+        DispatchQueue.global(qos: .background).async {
+            let result = self.shell.run(self.colimaPath, args: ["list", "--json"])
+            let names = Self.parseInstanceNames(result.output)
+            DispatchQueue.main.async { completion(names) }
         }
     }
 
