@@ -20,6 +20,10 @@ macOS menu bar app to manage [Colima](https://github.com/abiosoft/colima) + [Por
 |---|---|
 | ![Images](docs/screenshot-images.png) | ![Volumes](docs/screenshot-volumes.png) |
 
+### Compose tab
+
+![Compose tab](docs/screenshot-compose.png)
+
 ### Settings
 
 ![Settings](docs/screenshot-settings.png)
@@ -59,7 +63,7 @@ macOS menu bar app to manage [Colima](https://github.com/abiosoft/colima) + [Por
 - **Copy container ID** — one click copies the full container ID to clipboard
 - **In-app logs viewer** — floating window streams `docker logs -f` inline; follow/stop toggle, clear button, 5 000-line cap
 - **Networks tab** — lists Docker networks (driver, scope); prune unused networks
-- **Compose tab** — groups containers by Docker Compose project; shows count and status (all running / stopped / partial)
+- **Compose tab** — groups containers by Docker Compose project; expandable rows with per-container details (status, CPU%, RAM); action bar and right-click context menu on each container
 - **Polling interval presets** — Rapide (2 s) / Normal (5 s, default) / Lent (15 s) configurable in Settings
 - **Compact mode** — optionally show running container count next to the menu bar icon (`▶ N`)
 - **Disk resize** — resize Colima disk from Settings without CLI
