@@ -31,6 +31,7 @@ final class StatusBarController {
     private var settingsPopover: NSPopover!
     private var settingsPanelVC: SettingsPanelViewController!
     private var previousContainerStates: [String: DockerContainer.ContainerState] = [:]
+    private let logsWindowController = LogsWindowController()
 
     init(manager: ColimaManager) {
         self.manager = manager
@@ -510,7 +511,7 @@ final class StatusBarController {
     }
 
     private func openLogsTerminal(containerName name: String) {
-        runInTerminal("docker logs -f \(name)")
+        logsWindowController.show(containerName: name, dockerPath: "/opt/homebrew/bin/docker")
     }
 
     private func openShellTerminal(containerName name: String, command: String) {
