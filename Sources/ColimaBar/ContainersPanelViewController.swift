@@ -433,9 +433,10 @@ final class ContainersPanelViewController: NSViewController {
         volumesTableView.headerView = NSTableHeaderView()
 
         for (id, title, width) in [
-            ("volname",   L.t("Nom", "Name"),     300.0),
-            ("voldriver", L.t("Driver", "Driver"),  90.0),
-            ("volsize",   L.t("Taille", "Size"),    90.0),
+            ("volname",       L.t("Nom", "Name"),           220.0),
+            ("voldriver",     L.t("Driver", "Driver"),        80.0),
+            ("volsize",       L.t("Taille", "Size"),          80.0),
+            ("volcontainers", L.t("Containers", "Containers"), 260.0),
         ] as [(String, String, CGFloat)] {
             let col = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(id))
             col.title = title; col.width = width; col.minWidth = 20
@@ -831,12 +832,20 @@ extension ContainersPanelViewController: NSTableViewDataSource, NSTableViewDeleg
             guard row < allVolumes.count else { return cell }
             let vol = allVolumes[row]
             switch id {
-            case "volname":   cell.textField?.stringValue = vol.name
-            case "voldriver": cell.textField?.stringValue = vol.driver
-            case "volsize":   cell.textField?.stringValue = vol.size
+            case "volname":
+                cell.textField?.stringValue = vol.name
+                cell.textField?.textColor = .labelColor
+            case "voldriver":
+                cell.textField?.stringValue = vol.driver
+                cell.textField?.textColor = .secondaryLabelColor
+            case "volsize":
+                cell.textField?.stringValue = vol.size
+                cell.textField?.textColor = .secondaryLabelColor
+            case "volcontainers":
+                cell.textField?.stringValue = vol.containers.isEmpty ? "–" : vol.containers.joined(separator: ", ")
+                cell.textField?.textColor = vol.containers.isEmpty ? .tertiaryLabelColor : .secondaryLabelColor
             default: break
             }
-            cell.textField?.textColor = .secondaryLabelColor
             return cell
         }
 

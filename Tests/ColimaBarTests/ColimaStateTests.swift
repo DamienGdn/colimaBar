@@ -355,3 +355,23 @@ func test_parseDockerVolumes_sizeNA_whenDfMissing() {
 func test_parseDockerVolumes_empty() {
     check(ColimaManager.parseDockerVolumes("", "").isEmpty, "empty ls → empty array")
 }
+
+func test_parseDockerVolumes_containers() {
+    let psOutput = "portainer\tportainer_data,/var/run/docker.sock\nmy-app\tmy-vol"
+    let vols = ColimaManager.parseDockerVolumes(volumeLsOutput, volumeDfOutput, psOutput)
+    checkEqual(vols[0].containers, ["portainer"], "portainer_data used by portainer")
+    checkEqual(vols[1].containers, ["my-app"], "my-vol used by my-app")
+}
+
+func test_parseDockerVolumes_containers_empty_whenNone() {
+    let vols = ColimaManager.parseDockerVolumes(volumeLsOutput, volumeDfOutput, "")
+    check(vols[0].containers.isEmpty, "no ps output → empty containers")
+}
+
+func test_parseDockerVolumes_bindMounts_ignored() {
+    let psOutput = "my-app\t/home/user/data,my-vol"
+    let vols = ColimaManager.parseDockerVolumes(volumeLsOutput, volumeDfOutput, psOutput)
+    // /home/user/data is a bind mount (starts with /) — should be ignored
+    checkEqual(vols[1].containers, ["my-app"], "named volume linked, bind mount ignored")
+    check(vols[0].containers.isEmpty, "portainer_data not linked to my-app")
+}

@@ -35,6 +35,9 @@ test_parseDockerVolumes_countAndNames()
 test_parseDockerVolumes_driverAndSize()
 test_parseDockerVolumes_sizeNA_whenDfMissing()
 test_parseDockerVolumes_empty()
+test_parseDockerVolumes_containers()
+test_parseDockerVolumes_containers_empty_whenNone()
+test_parseDockerVolumes_bindMounts_ignored()
 
 print("\n\(_passed) passed, \(_failed) failed")
 if _failed > 0 {

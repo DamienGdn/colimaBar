@@ -1,0 +1,2 @@
+{"type":"server-started","port":61022,"host":"127.0.0.1","url_host":"localhost","url":"http://localhost:61022","screen_dir":"/Users/d.guesdon/Documents/projets/tools/colima/.superpowers/brainstorm/16048-1779380626/content","state_dir":"/Users/d.guesdon/Documents/projets/tools/colima/.superpowers/brainstorm/16048-1779380626/state"}
+{"type":"server-stopped","reason":"owner process exited"}

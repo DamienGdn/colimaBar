@@ -96,7 +96,8 @@ public final class ColimaManager {
 
     // Parses `docker volume ls --format '{{json .}}'` (lsOutput) for name+driver,
     // cross-references `docker system df -v` (dfOutput) for sizes.
-    public static func parseDockerVolumes(_ lsOutput: String, _ dfOutput: String) -> [DockerVolume] {
+    public static func parseDockerVolumes(_ lsOutput: String, _ dfOutput: String,
+                                          _ psOutput: String = "") -> [DockerVolume] {
         // Parse volume ls → name + driver
         var volumes: [(name: String, driver: String)] = []
         for line in lsOutput.components(separatedBy: .newlines).filter({ !$0.isEmpty }) {
@@ -119,8 +120,25 @@ public final class ColimaManager {
             }
         }
 
+        // Parse `docker ps -a --format '{{.Names}}\t{{.Mounts}}'` → volume→[containers] mapping
+        // Named volumes don't start with '/' and don't contain ':'
+        var volumeContainers: [String: [String]] = [:]
+        for line in psOutput.components(separatedBy: .newlines).filter({ !$0.isEmpty }) {
+            let parts = line.components(separatedBy: "\t")
+            guard parts.count >= 2 else { continue }
+            let containerName = parts[0].trimmingCharacters(in: .whitespaces)
+            let mounts = parts[1].components(separatedBy: ",")
+            for mount in mounts {
+                let m = mount.trimmingCharacters(in: .whitespaces)
+                guard !m.isEmpty, !m.hasPrefix("/"), !m.contains(":") else { continue }
+                volumeContainers[m, default: []].append(containerName)
+            }
+        }
+
         return volumes.map { v in
-            DockerVolume(name: v.name, driver: v.driver, size: sizes[v.name] ?? "N/A")
+            DockerVolume(name: v.name, driver: v.driver,
+                         size: sizes[v.name] ?? "N/A",
+                         containers: volumeContainers[v.name] ?? [])
         }
     }
 
@@ -396,7 +414,8 @@ public final class ColimaManager {
         DispatchQueue.global(qos: .userInitiated).async {
             let lsResult = self.shell.run(self.dockerPath, args: ["volume", "ls", "--format", "{{json .}}"])
             let dfResult = self.shell.run(self.dockerPath, args: ["system", "df", "-v"])
-            let volumes = Self.parseDockerVolumes(lsResult.output, dfResult.output)
+            let psResult = self.shell.run(self.dockerPath, args: ["ps", "-a", "--format", "{{.Names}}\t{{.Mounts}}"])
+            let volumes = Self.parseDockerVolumes(lsResult.output, dfResult.output, psResult.output)
             DispatchQueue.main.async { completion(volumes) }
         }
     }

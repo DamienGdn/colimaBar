@@ -3,7 +3,8 @@ import Foundation
 public struct DockerVolume: Equatable {
     public let name: String
     public let driver: String
-    public let size: String    // e.g. "1.2GB" or "N/A"
+    public let size: String         // e.g. "1.2GB" or "N/A"
+    public let containers: [String] // container names using this volume
 }
 
 struct DockerVolumeLSJSON: Codable {
