@@ -38,6 +38,9 @@ test_parseDockerVolumes_empty()
 test_parseDockerVolumes_containers()
 test_parseDockerVolumes_containers_empty_whenNone()
 test_parseDockerVolumes_bindMounts_ignored()
+test_parseRestartPolicies_multiple()
+test_parseRestartPolicies_empty()
+test_parseRestartPolicies_emptyPolicy()
 
 print("\n\(_passed) passed, \(_failed) failed")
 if _failed > 0 {

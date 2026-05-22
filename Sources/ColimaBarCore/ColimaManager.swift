@@ -142,6 +142,20 @@ public final class ColimaManager {
         }
     }
 
+    // Parses `docker inspect --format '{{slice .Name 1}}\t{{.HostConfig.RestartPolicy.Name}}' <ids...>`
+    public static func parseRestartPolicies(_ output: String) -> [String: String] {
+        var result: [String: String] = [:]
+        for line in output.components(separatedBy: .newlines).filter({ !$0.isEmpty }) {
+            let parts = line.components(separatedBy: "\t")
+            guard parts.count >= 2 else { continue }
+            let name   = parts[0].trimmingCharacters(in: .whitespaces)
+            let policy = parts[1].trimmingCharacters(in: .whitespaces)
+            guard !name.isEmpty else { continue }
+            result[name] = policy
+        }
+        return result
+    }
+
     // Parses `docker stats --no-stream --format "{{.CPUPerc}}\t{{.MemUsage}}"` output.
     public static func parseDockerStats(_ output: String) -> ResourceUsage? {
         var totalCPU = 0.0

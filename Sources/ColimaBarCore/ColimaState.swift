@@ -32,6 +32,7 @@ public struct ColimaAppState: Equatable {
     public let containerStats: [String: ResourceUsage]
     public let containers: [DockerContainer]
     public let startDuration: TimeInterval?
+    public let restartPolicies: [String: String]
 
     public init(
         colima: ColimaRunningState,
@@ -41,7 +42,8 @@ public struct ColimaAppState: Equatable {
         usage: ResourceUsage? = nil,
         containerStats: [String: ResourceUsage] = [:],
         containers: [DockerContainer] = [],
-        startDuration: TimeInterval? = nil
+        startDuration: TimeInterval? = nil,
+        restartPolicies: [String: String] = [:]
     ) {
         self.colima = colima
         self.cpus = cpus
@@ -51,6 +53,7 @@ public struct ColimaAppState: Equatable {
         self.containerStats = containerStats
         self.containers = containers
         self.startDuration = startDuration
+        self.restartPolicies = restartPolicies
     }
 
     public static let unknown = ColimaAppState(colima: .unknown)

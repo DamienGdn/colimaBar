@@ -375,3 +375,24 @@ func test_parseDockerVolumes_bindMounts_ignored() {
     checkEqual(vols[1].containers, ["my-app"], "named volume linked, bind mount ignored")
     check(vols[0].containers.isEmpty, "portainer_data not linked to my-app")
 }
+
+// MARK: - parseRestartPolicies tests
+
+func test_parseRestartPolicies_multiple() {
+    let output = "portainer\talways\nmy-app\tno\nnginx\ton-failure"
+    let policies = ColimaManager.parseRestartPolicies(output)
+    check(policies.count == 3, "3 policies parsed")
+    checkEqual(policies["portainer"], "always", "portainer = always")
+    checkEqual(policies["my-app"], "no", "my-app = no")
+    checkEqual(policies["nginx"], "on-failure", "nginx = on-failure")
+}
+
+func test_parseRestartPolicies_empty() {
+    check(ColimaManager.parseRestartPolicies("").isEmpty, "empty → empty dict")
+}
+
+func test_parseRestartPolicies_emptyPolicy() {
+    let output = "my-container\t"
+    let policies = ColimaManager.parseRestartPolicies(output)
+    checkEqual(policies["my-container"], "", "empty policy stored as empty string")
+}
