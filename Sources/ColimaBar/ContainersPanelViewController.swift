@@ -129,7 +129,7 @@ final class ContainersPanelViewController: NSViewController {
         guard isViewLoaded else { return }
         applyFilter()
         refreshStats()
-        if tabControl?.selectedSegment == 4 { refreshCompose() }
+        if tabControl?.selectedSegment == 0 { refreshCompose() }
     }
 
     // MARK: - Build UI
@@ -137,11 +137,11 @@ final class ContainersPanelViewController: NSViewController {
     private func buildUI() {
         // Tab control
         tabControl = NSSegmentedControl(
-            labels: [L.t("Containers", "Containers"),
+            labels: [L.t("Compose", "Compose"),
+                     L.t("Containers", "Containers"),
                      L.t("Images", "Images"),
                      L.t("Volumes", "Volumes"),
-                     L.t("Networks", "Networks"),
-                     L.t("Compose", "Compose")],
+                     L.t("Networks", "Networks")],
             trackingMode: .selectOne,
             target: self, action: #selector(tabChanged))
         tabControl.selectedSegment = 0
@@ -152,6 +152,7 @@ final class ContainersPanelViewController: NSViewController {
         // Content areas
         containersContentView = NSView()
         containersContentView.translatesAutoresizingMaskIntoConstraints = false
+        containersContentView.isHidden = true
         view.addSubview(containersContentView)
 
         imagesContentView = NSView()
@@ -171,7 +172,6 @@ final class ContainersPanelViewController: NSViewController {
 
         composeContentView = NSView()
         composeContentView.translatesAutoresizingMaskIntoConstraints = false
-        composeContentView.isHidden = true
         view.addSubview(composeContentView)
 
         NSLayoutConstraint.activate([
@@ -212,15 +212,15 @@ final class ContainersPanelViewController: NSViewController {
     }
 
     @objc private func tabChanged() {
-        containersContentView.isHidden = tabControl.selectedSegment != 0
-        imagesContentView.isHidden     = tabControl.selectedSegment != 1
-        volumesContentView.isHidden    = tabControl.selectedSegment != 2
-        networksContentView.isHidden   = tabControl.selectedSegment != 3
-        composeContentView.isHidden    = tabControl.selectedSegment != 4
-        if tabControl.selectedSegment == 1 { refreshImages() }
-        if tabControl.selectedSegment == 2 { refreshVolumes() }
-        if tabControl.selectedSegment == 3 { refreshNetworks() }
-        if tabControl.selectedSegment == 4 { refreshCompose() }
+        composeContentView.isHidden    = tabControl.selectedSegment != 0
+        containersContentView.isHidden = tabControl.selectedSegment != 1
+        imagesContentView.isHidden     = tabControl.selectedSegment != 2
+        volumesContentView.isHidden    = tabControl.selectedSegment != 3
+        networksContentView.isHidden   = tabControl.selectedSegment != 4
+        if tabControl.selectedSegment == 0 { refreshCompose() }
+        if tabControl.selectedSegment == 2 { refreshImages() }
+        if tabControl.selectedSegment == 3 { refreshVolumes() }
+        if tabControl.selectedSegment == 4 { refreshNetworks() }
     }
 
     // MARK: - Containers UI
