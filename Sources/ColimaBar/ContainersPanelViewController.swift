@@ -95,14 +95,23 @@ final class ContainersPanelViewController: NSViewController {
     private var allNetworks:         [DockerNetwork] = []
 
     // Compose tab
-    private var composeOutlineView:   NSOutlineView!
-    private var composeOutlineScroll: NSScrollView!
-    private var cmpStartBtn:          NSButton!
-    private var cmpStopBtn:           NSButton!
-    private var cmpRestartBtn:        NSButton!
-    private var cmpLogsBtn:           NSButton!
-    private var cmpShellBtn:          NSButton!
-    private var cmpEnvBtn:            NSButton!
+    private var composeOutlineView:        NSOutlineView!
+    private var composeOutlineScroll:      NSScrollView!
+    private var composeSearchField:        NSSearchField!
+    private var composeSearchText          = ""
+    private var cmpSparklineZone:          NSView!
+    private var cmpSparklineNameLbl:       NSTextField!
+    private var cmpCpuSparkline:           SparklineView!
+    private var cmpCpuValueLbl:            NSTextField!
+    private var cmpRamSparkline:           SparklineView!
+    private var cmpRamValueLbl:            NSTextField!
+    private var cmpSparklineHeightConstraint: NSLayoutConstraint!
+    private var cmpStartBtn:               NSButton!
+    private var cmpStopBtn:               NSButton!
+    private var cmpRestartBtn:            NSButton!
+    private var cmpLogsBtn:               NSButton!
+    private var cmpShellBtn:              NSButton!
+    private var cmpEnvBtn:                NSButton!
     private var composeContextMenu    = NSMenu()
     private var composeContextTarget: DockerContainer?
 
@@ -606,6 +615,15 @@ final class ContainersPanelViewController: NSViewController {
     // MARK: - Compose UI
 
     private func buildComposeUI() {
+        // Search field
+        composeSearchField = NSSearchField()
+        composeSearchField.placeholderString = L.t("Rechercher…", "Search…")
+        composeSearchField.target = self
+        composeSearchField.action = #selector(composeSearchChanged)
+        composeSearchField.translatesAutoresizingMaskIntoConstraints = false
+        composeContentView.addSubview(composeSearchField)
+
+        // Outline view
         composeOutlineView = NSOutlineView()
         composeOutlineView.style                   = .plain
         composeOutlineView.rowHeight               = 22
@@ -642,6 +660,66 @@ final class ContainersPanelViewController: NSViewController {
         composeOutlineScroll.translatesAutoresizingMaskIntoConstraints = false
         composeContentView.addSubview(composeOutlineScroll)
 
+        // Sparkline zone
+        cmpSparklineZone = NSView()
+        cmpSparklineZone.translatesAutoresizingMaskIntoConstraints = false
+        composeContentView.addSubview(cmpSparklineZone)
+
+        cmpSparklineNameLbl = NSTextField(labelWithString: "")
+        cmpSparklineNameLbl.font      = .boldSystemFont(ofSize: 12)
+        cmpSparklineNameLbl.textColor = .labelColor
+        cmpSparklineNameLbl.translatesAutoresizingMaskIntoConstraints = false
+        cmpSparklineZone.addSubview(cmpSparklineNameLbl)
+
+        cmpCpuSparkline = SparklineView()
+        cmpCpuSparkline.color = .systemGreen
+        cmpCpuSparkline.translatesAutoresizingMaskIntoConstraints = false
+        cmpSparklineZone.addSubview(cmpCpuSparkline)
+
+        cmpCpuValueLbl = NSTextField(labelWithString: "")
+        cmpCpuValueLbl.font      = .systemFont(ofSize: 11)
+        cmpCpuValueLbl.textColor = .secondaryLabelColor
+        cmpCpuValueLbl.alignment = .right
+        cmpCpuValueLbl.translatesAutoresizingMaskIntoConstraints = false
+        cmpSparklineZone.addSubview(cmpCpuValueLbl)
+
+        cmpRamSparkline = SparklineView()
+        cmpRamSparkline.color = .systemBlue
+        cmpRamSparkline.translatesAutoresizingMaskIntoConstraints = false
+        cmpSparklineZone.addSubview(cmpRamSparkline)
+
+        cmpRamValueLbl = NSTextField(labelWithString: "")
+        cmpRamValueLbl.font      = .systemFont(ofSize: 11)
+        cmpRamValueLbl.textColor = .secondaryLabelColor
+        cmpRamValueLbl.alignment = .right
+        cmpRamValueLbl.translatesAutoresizingMaskIntoConstraints = false
+        cmpSparklineZone.addSubview(cmpRamValueLbl)
+
+        NSLayoutConstraint.activate([
+            cmpSparklineNameLbl.topAnchor.constraint(equalTo: cmpSparklineZone.topAnchor, constant: 4),
+            cmpSparklineNameLbl.leadingAnchor.constraint(equalTo: cmpSparklineZone.leadingAnchor, constant: 12),
+            cmpSparklineNameLbl.trailingAnchor.constraint(lessThanOrEqualTo: cmpSparklineZone.trailingAnchor, constant: -12),
+
+            cmpCpuSparkline.topAnchor.constraint(equalTo: cmpSparklineNameLbl.bottomAnchor, constant: 2),
+            cmpCpuSparkline.leadingAnchor.constraint(equalTo: cmpSparklineZone.leadingAnchor, constant: 12),
+            cmpCpuSparkline.trailingAnchor.constraint(equalTo: cmpCpuValueLbl.leadingAnchor, constant: -8),
+            cmpCpuSparkline.heightAnchor.constraint(equalToConstant: 24),
+
+            cmpCpuValueLbl.centerYAnchor.constraint(equalTo: cmpCpuSparkline.centerYAnchor),
+            cmpCpuValueLbl.trailingAnchor.constraint(equalTo: cmpSparklineZone.trailingAnchor, constant: -12),
+            cmpCpuValueLbl.widthAnchor.constraint(equalToConstant: 90),
+
+            cmpRamSparkline.topAnchor.constraint(equalTo: cmpCpuSparkline.bottomAnchor, constant: 4),
+            cmpRamSparkline.leadingAnchor.constraint(equalTo: cmpSparklineZone.leadingAnchor, constant: 12),
+            cmpRamSparkline.trailingAnchor.constraint(equalTo: cmpRamValueLbl.leadingAnchor, constant: -8),
+            cmpRamSparkline.heightAnchor.constraint(equalToConstant: 24),
+
+            cmpRamValueLbl.centerYAnchor.constraint(equalTo: cmpRamSparkline.centerYAnchor),
+            cmpRamValueLbl.trailingAnchor.constraint(equalTo: cmpSparklineZone.trailingAnchor, constant: -12),
+            cmpRamValueLbl.widthAnchor.constraint(equalToConstant: 90),
+        ])
+
+        // Action bar
         cmpStartBtn   = makeBtn(L.t("▶ Démarrer", "▶ Start"),   #selector(cmpStartAction))
         cmpStopBtn    = makeBtn(L.t("■ Arrêter",   "■ Stop"),    #selector(cmpStopAction))
         cmpRestartBtn = makeBtn(L.t("↺ Restart",   "↺ Restart"), #selector(cmpRestartAction))
@@ -650,20 +728,36 @@ final class ContainersPanelViewController: NSViewController {
         cmpEnvBtn     = makeBtn(L.t("Env",         "Env"),        #selector(cmpEnvAction))
         let actionBar = NSStackView(views: [cmpStartBtn, cmpStopBtn, cmpRestartBtn,
                                             cmpLogsBtn, cmpShellBtn, cmpEnvBtn])
-        actionBar.orientation = .horizontal
-        actionBar.spacing     = 6
+        actionBar.orientation  = .horizontal
+        actionBar.spacing      = 5
+        actionBar.distribution = .fillEqually
         actionBar.translatesAutoresizingMaskIntoConstraints = false
         composeContentView.addSubview(actionBar)
-        updateComposeButtons()
+
+        cmpSparklineHeightConstraint = cmpSparklineZone.heightAnchor.constraint(equalToConstant: 0)
 
         NSLayoutConstraint.activate([
-            actionBar.leadingAnchor.constraint(equalTo: composeContentView.leadingAnchor, constant: 8),
-            actionBar.bottomAnchor.constraint(equalTo: composeContentView.bottomAnchor, constant: -8),
-            composeOutlineScroll.topAnchor.constraint(equalTo: composeContentView.topAnchor, constant: 6),
+            composeSearchField.topAnchor.constraint(equalTo: composeContentView.topAnchor, constant: 8),
+            composeSearchField.leadingAnchor.constraint(equalTo: composeContentView.leadingAnchor, constant: 8),
+            composeSearchField.trailingAnchor.constraint(equalTo: composeContentView.trailingAnchor, constant: -8),
+
+            composeOutlineScroll.topAnchor.constraint(equalTo: composeSearchField.bottomAnchor, constant: 6),
             composeOutlineScroll.leadingAnchor.constraint(equalTo: composeContentView.leadingAnchor, constant: 8),
             composeOutlineScroll.trailingAnchor.constraint(equalTo: composeContentView.trailingAnchor, constant: -8),
-            composeOutlineScroll.bottomAnchor.constraint(equalTo: actionBar.topAnchor, constant: -6),
+            composeOutlineScroll.bottomAnchor.constraint(equalTo: cmpSparklineZone.topAnchor, constant: -4),
+
+            cmpSparklineZone.leadingAnchor.constraint(equalTo: composeContentView.leadingAnchor),
+            cmpSparklineZone.trailingAnchor.constraint(equalTo: composeContentView.trailingAnchor),
+            cmpSparklineZone.bottomAnchor.constraint(equalTo: actionBar.topAnchor, constant: -4),
+            cmpSparklineHeightConstraint,
+
+            actionBar.leadingAnchor.constraint(equalTo: composeContentView.leadingAnchor, constant: 8),
+            actionBar.trailingAnchor.constraint(equalTo: composeContentView.trailingAnchor, constant: -8),
+            actionBar.bottomAnchor.constraint(equalTo: composeContentView.bottomAnchor, constant: -10),
+            actionBar.heightAnchor.constraint(equalToConstant: 24),
         ])
+
+        updateComposeButtons()
     }
 
     private func makeBtn(_ title: String, _ action: Selector) -> NSButton {
@@ -948,6 +1042,7 @@ final class ContainersPanelViewController: NSViewController {
 
     private func refreshCompose() {
         composeOutlineView?.reloadData()
+        refreshComposeSparklines()
     }
 
     private var composeProjects: [(name: String, containers: [DockerContainer])] {
@@ -956,11 +1051,44 @@ final class ContainersPanelViewController: NSViewController {
             guard let project = c.composeProject else { continue }
             dict[project, default: []].append(c)
         }
-        return dict.map { (name: $0.key, containers: $0.value) }
-                   .sorted { $0.name < $1.name }
+        let all = dict.map { (name: $0.key, containers: $0.value) }
+                      .sorted { $0.name < $1.name }
+        guard !composeSearchText.isEmpty else { return all }
+        let q = composeSearchText
+        return all.compactMap { proj -> (name: String, containers: [DockerContainer])? in
+            if proj.name.localizedCaseInsensitiveContains(q) { return proj }
+            let filtered = proj.containers.filter { $0.name.localizedCaseInsensitiveContains(q) || $0.image.localizedCaseInsensitiveContains(q) }
+            return filtered.isEmpty ? nil : (name: proj.name, containers: filtered)
+        }
     }
 
     // MARK: - Compose helpers
+
+    @objc private func composeSearchChanged() {
+        composeSearchText = composeSearchField.stringValue
+        composeOutlineView?.reloadData()
+    }
+
+    private func refreshComposeSparklines() {
+        guard isViewLoaded, let zone = cmpSparklineZone else { return }
+        guard let c = composeSelected(), c.isRunning else {
+            cmpSparklineHeightConstraint.constant = 0
+            zone.isHidden = true
+            return
+        }
+        zone.isHidden = false
+        cmpSparklineHeightConstraint.constant = 80
+        cmpSparklineNameLbl.stringValue = c.name
+        cmpCpuSparkline.values = cpuHistory[c.name] ?? []
+        cmpRamSparkline.values = ramHistory[c.name] ?? []
+        if let s = containerStats[c.name] {
+            cmpCpuValueLbl.stringValue = String(format: "CPU %.1f%%", s.cpuPercent)
+            cmpRamValueLbl.stringValue = "RAM \(s.memUsedFormatted)"
+        } else {
+            cmpCpuValueLbl.stringValue = "CPU …"
+            cmpRamValueLbl.stringValue = "RAM …"
+        }
+    }
 
     private func composeSelected() -> DockerContainer? {
         guard let ov = composeOutlineView else { return nil }
@@ -1355,6 +1483,7 @@ extension ContainersPanelViewController: NSOutlineViewDataSource, NSOutlineViewD
 
     func outlineViewSelectionDidChange(_ notification: Notification) {
         updateComposeButtons()
+        refreshComposeSparklines()
     }
 }
 
