@@ -59,6 +59,14 @@ test_findComposeFile_noLabels()
 test_findComposeFile_missingWorkingDir()
 test_composeProjects_groupsContainersByProject()
 
+test_logFilter_errorLevel()
+test_logFilter_warnLevel()
+test_logFilter_successLevel()
+test_logFilter_queryFiltersLines()
+test_logFilter_queryCaseInsensitive()
+test_logFilter_emptyQuery_returnsAll()
+test_logFilter_extractErrorLines()
+
 print("\n\(_passed) passed, \(_failed) failed")
 if _failed > 0 {
     exit(1)
