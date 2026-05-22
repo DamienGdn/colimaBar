@@ -1,5 +1,14 @@
 # Changelog
 
+## v1.9.2 — 2026-05-22
+
+### Improvements
+
+- **Compose tab** — now the first/default tab; search field filters by project, container name, or image; CPU/RAM sparklines appear when a running container is selected
+- Compose selection preserved across polling refreshes (expansion state and row highlight maintained)
+
+---
+
 ## v1.9.0 — 2026-05-22
 
 ### New features
