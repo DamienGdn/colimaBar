@@ -67,6 +67,11 @@ test_logFilter_queryCaseInsensitive()
 test_logFilter_emptyQuery_returnsAll()
 test_logFilter_extractErrorLines()
 
+test_snapshotService_parseSnapshotFilename()
+test_snapshotService_skipNonQcow2()
+test_snapshotService_snapshotPath_construction()
+test_snapshotService_createCallsStopCopyStart()
+
 print("\n\(_passed) passed, \(_failed) failed")
 if _failed > 0 {
     exit(1)
