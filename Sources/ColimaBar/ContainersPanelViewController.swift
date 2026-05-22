@@ -15,6 +15,8 @@ final class ContainersPanelViewController: NSViewController {
     var onPullImage:   ((String, @escaping (Result<Void, Error>) -> Void) -> Void)?
     var onFetchVolumes: ((@escaping ([DockerVolume]) -> Void) -> Void)?
     var onPruneVolumes: ((@escaping (Result<String, Error>) -> Void) -> Void)?
+    var onFetchNetworks: ((@escaping ([DockerNetwork]) -> Void) -> Void)?
+    var onPruneNetworks: ((@escaping (Result<String, Error>) -> Void) -> Void)?
     var onSetRestartPolicy: ((String, String, @escaping (Result<Void, Error>) -> Void) -> Void)?
     var onFetchEnvVars:     ((String, @escaping ([String]) -> Void) -> Void)?
     var onInspect:          ((String) -> Void)?
@@ -25,6 +27,8 @@ final class ContainersPanelViewController: NSViewController {
     private var containersContentView: NSView!
     private var imagesContentView:     NSView!
     private var volumesContentView:    NSView!
+    private var networksContentView:   NSView!
+    private var composeContentView:    NSView!
 
     // MARK: - Containers tab
 
@@ -83,6 +87,17 @@ final class ContainersPanelViewController: NSViewController {
     private var volumeStatusLbl:   NSTextField!
     private var allVolumes:        [DockerVolume] = []
 
+    // Networks tab
+    private var networksTableView:   NSTableView!
+    private var networksScrollView:  NSScrollView!
+    private var pruneNetworksBtn:    NSButton!
+    private var networkStatusLbl:    NSTextField!
+    private var allNetworks:         [DockerNetwork] = []
+
+    // Compose tab
+    private var composeTableView:    NSTableView!
+    private var composeScrollView:   NSScrollView!
+
     // MARK: - Lifecycle
 
     override func loadView() {
@@ -106,6 +121,7 @@ final class ContainersPanelViewController: NSViewController {
         guard isViewLoaded else { return }
         applyFilter()
         refreshStats()
+        if tabControl?.selectedSegment == 4 { refreshCompose() }
     }
 
     // MARK: - Build UI
@@ -115,7 +131,9 @@ final class ContainersPanelViewController: NSViewController {
         tabControl = NSSegmentedControl(
             labels: [L.t("Containers", "Containers"),
                      L.t("Images", "Images"),
-                     L.t("Volumes", "Volumes")],
+                     L.t("Volumes", "Volumes"),
+                     L.t("Networks", "Networks"),
+                     L.t("Compose", "Compose")],
             trackingMode: .selectOne,
             target: self, action: #selector(tabChanged))
         tabControl.selectedSegment = 0
@@ -138,6 +156,16 @@ final class ContainersPanelViewController: NSViewController {
         volumesContentView.isHidden = true
         view.addSubview(volumesContentView)
 
+        networksContentView = NSView()
+        networksContentView.translatesAutoresizingMaskIntoConstraints = false
+        networksContentView.isHidden = true
+        view.addSubview(networksContentView)
+
+        composeContentView = NSView()
+        composeContentView.translatesAutoresizingMaskIntoConstraints = false
+        composeContentView.isHidden = true
+        view.addSubview(composeContentView)
+
         NSLayoutConstraint.activate([
             tabControl.topAnchor.constraint(equalTo: view.topAnchor, constant: 8),
             tabControl.centerXAnchor.constraint(equalTo: view.centerXAnchor),
@@ -156,19 +184,35 @@ final class ContainersPanelViewController: NSViewController {
             volumesContentView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             volumesContentView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             volumesContentView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+
+            networksContentView.topAnchor.constraint(equalTo: tabControl.bottomAnchor, constant: 4),
+            networksContentView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            networksContentView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            networksContentView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+
+            composeContentView.topAnchor.constraint(equalTo: tabControl.bottomAnchor, constant: 4),
+            composeContentView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            composeContentView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            composeContentView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
         ])
 
         buildContainersUI()
         buildImagesUI()
         buildVolumesUI()
+        buildNetworksUI()
+        buildComposeUI()
     }
 
     @objc private func tabChanged() {
         containersContentView.isHidden = tabControl.selectedSegment != 0
         imagesContentView.isHidden     = tabControl.selectedSegment != 1
         volumesContentView.isHidden    = tabControl.selectedSegment != 2
+        networksContentView.isHidden   = tabControl.selectedSegment != 3
+        composeContentView.isHidden    = tabControl.selectedSegment != 4
         if tabControl.selectedSegment == 1 { refreshImages() }
         if tabControl.selectedSegment == 2 { refreshVolumes() }
+        if tabControl.selectedSegment == 3 { refreshNetworks() }
+        if tabControl.selectedSegment == 4 { refreshCompose() }
     }
 
     // MARK: - Containers UI
@@ -494,6 +538,100 @@ final class ContainersPanelViewController: NSViewController {
         ])
     }
 
+    // MARK: - Networks UI
+
+    private func buildNetworksUI() {
+        networksTableView = NSTableView()
+        networksTableView.style      = .plain
+        networksTableView.rowHeight  = 22
+        networksTableView.columnAutoresizingStyle = .lastColumnOnlyAutoresizingStyle
+        networksTableView.delegate   = self
+        networksTableView.dataSource = self
+        networksTableView.headerView = NSTableHeaderView()
+
+        for (id, title, width) in [
+            ("netname",   L.t("Nom", "Name"),       220.0),
+            ("netdriver", L.t("Driver", "Driver"),    80.0),
+            ("netscope",  L.t("Scope", "Scope"),      70.0),
+        ] as [(String, String, CGFloat)] {
+            let col = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(id))
+            col.title = title; col.width = width; col.minWidth = 20
+            networksTableView.addTableColumn(col)
+        }
+
+        networksScrollView = NSScrollView()
+        networksScrollView.documentView          = networksTableView
+        networksScrollView.hasVerticalScroller   = true
+        networksScrollView.autohidesScrollers    = true
+        networksScrollView.borderType            = .bezelBorder
+        networksScrollView.translatesAutoresizingMaskIntoConstraints = false
+        networksContentView.addSubview(networksScrollView)
+
+        pruneNetworksBtn = makeBtn(L.t("🗑 Purger réseaux…", "🗑 Prune networks…"),
+                                   #selector(pruneNetworksAction))
+        pruneNetworksBtn.translatesAutoresizingMaskIntoConstraints = false
+        networksContentView.addSubview(pruneNetworksBtn)
+
+        networkStatusLbl = NSTextField(labelWithString: "")
+        networkStatusLbl.font          = .systemFont(ofSize: 11)
+        networkStatusLbl.textColor     = .secondaryLabelColor
+        networkStatusLbl.lineBreakMode = .byTruncatingTail
+        networkStatusLbl.translatesAutoresizingMaskIntoConstraints = false
+        networksContentView.addSubview(networkStatusLbl)
+
+        NSLayoutConstraint.activate([
+            networksScrollView.topAnchor.constraint(equalTo: networksContentView.topAnchor, constant: 6),
+            networksScrollView.leadingAnchor.constraint(equalTo: networksContentView.leadingAnchor, constant: 8),
+            networksScrollView.trailingAnchor.constraint(equalTo: networksContentView.trailingAnchor, constant: -8),
+            networksScrollView.bottomAnchor.constraint(equalTo: pruneNetworksBtn.topAnchor, constant: -6),
+
+            pruneNetworksBtn.leadingAnchor.constraint(equalTo: networksContentView.leadingAnchor, constant: 8),
+            pruneNetworksBtn.bottomAnchor.constraint(equalTo: networkStatusLbl.topAnchor, constant: -4),
+
+            networkStatusLbl.leadingAnchor.constraint(equalTo: networksContentView.leadingAnchor, constant: 12),
+            networkStatusLbl.trailingAnchor.constraint(equalTo: networksContentView.trailingAnchor, constant: -12),
+            networkStatusLbl.bottomAnchor.constraint(equalTo: networksContentView.bottomAnchor, constant: -10),
+            networkStatusLbl.heightAnchor.constraint(equalToConstant: 16),
+        ])
+    }
+
+    // MARK: - Compose UI
+
+    private func buildComposeUI() {
+        composeTableView = NSTableView()
+        composeTableView.style      = .plain
+        composeTableView.rowHeight  = 22
+        composeTableView.columnAutoresizingStyle = .lastColumnOnlyAutoresizingStyle
+        composeTableView.delegate   = self
+        composeTableView.dataSource = self
+        composeTableView.headerView = NSTableHeaderView()
+
+        for (id, title, width) in [
+            ("cproject", L.t("Projet", "Project"),          240.0),
+            ("ccount",   L.t("Containers", "Containers"),    80.0),
+            ("cstatus",  L.t("Statut", "Status"),           160.0),
+        ] as [(String, String, CGFloat)] {
+            let col = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(id))
+            col.title = title; col.width = width; col.minWidth = 20
+            composeTableView.addTableColumn(col)
+        }
+
+        composeScrollView = NSScrollView()
+        composeScrollView.documentView          = composeTableView
+        composeScrollView.hasVerticalScroller   = true
+        composeScrollView.autohidesScrollers    = true
+        composeScrollView.borderType            = .bezelBorder
+        composeScrollView.translatesAutoresizingMaskIntoConstraints = false
+        composeContentView.addSubview(composeScrollView)
+
+        NSLayoutConstraint.activate([
+            composeScrollView.topAnchor.constraint(equalTo: composeContentView.topAnchor, constant: 6),
+            composeScrollView.leadingAnchor.constraint(equalTo: composeContentView.leadingAnchor, constant: 8),
+            composeScrollView.trailingAnchor.constraint(equalTo: composeContentView.trailingAnchor, constant: -8),
+            composeScrollView.bottomAnchor.constraint(equalTo: composeContentView.bottomAnchor, constant: -10),
+        ])
+    }
+
     private func makeBtn(_ title: String, _ action: Selector) -> NSButton {
         let b = NSButton(title: title, target: self, action: action)
         b.bezelStyle  = .rounded
@@ -761,6 +899,59 @@ final class ContainersPanelViewController: NSViewController {
         }
     }
 
+    // MARK: - Networks data
+
+    private func refreshNetworks() {
+        networkStatusLbl?.stringValue = L.t("Chargement…", "Loading…")
+        onFetchNetworks? { [weak self] networks in
+            self?.allNetworks = networks
+            self?.networksTableView?.reloadData()
+            self?.networkStatusLbl?.stringValue = ""
+        }
+    }
+
+    // MARK: - Compose data
+
+    private func refreshCompose() {
+        composeTableView?.reloadData()
+    }
+
+    private var composeProjects: [(name: String, containers: [DockerContainer])] {
+        var dict: [String: [DockerContainer]] = [:]
+        for c in allContainers {
+            guard let project = c.composeProject else { continue }
+            dict[project, default: []].append(c)
+        }
+        return dict.map { (name: $0.key, containers: $0.value) }
+                   .sorted { $0.name < $1.name }
+    }
+
+    // MARK: - Networks actions
+
+    @objc private func pruneNetworksAction() {
+        let alert = NSAlert()
+        alert.messageText     = L.t("Purger les réseaux", "Prune networks")
+        alert.informativeText = L.t(
+            "Supprime tous les réseaux non utilisés. Irréversible.",
+            "Removes all unused networks. Cannot be undone.")
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: L.t("Purger", "Prune"))
+        alert.addButton(withTitle: L.t("Annuler", "Cancel"))
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        pruneNetworksBtn.isEnabled = false
+        onPruneNetworks? { [weak self] result in
+            self?.pruneNetworksBtn.isEnabled = true
+            switch result {
+            case .success(let output):
+                let lines = output.components(separatedBy: .newlines).filter { $0.hasPrefix("Total") }
+                self?.networkStatusLbl.stringValue = lines.first ?? L.t("✓ Réseaux purgés", "✓ Networks pruned")
+                self?.refreshNetworks()
+            case .failure(let e):
+                self?.networkStatusLbl.stringValue = "✗ \(e.localizedDescription)"
+            }
+        }
+    }
+
     // MARK: - Containers actions
 
     @objc private func filterChanged() {
@@ -955,6 +1146,8 @@ extension ContainersPanelViewController: NSTableViewDataSource, NSTableViewDeleg
         if tableView == self.tableView    { return displayed.count }
         if tableView == imagesTableView   { return allImages.count }
         if tableView == volumesTableView  { return allVolumes.count }
+        if tableView == networksTableView { return allNetworks.count }
+        if tableView == composeTableView  { return composeProjects.count }
         return 0
     }
 
@@ -1009,6 +1202,55 @@ extension ContainersPanelViewController: NSTableViewDataSource, NSTableViewDeleg
             case "volcontainers":
                 cell.textField?.stringValue = vol.containers.isEmpty ? "–" : vol.containers.joined(separator: ", ")
                 cell.textField?.textColor = vol.containers.isEmpty ? .tertiaryLabelColor : .secondaryLabelColor
+            default: break
+            }
+            return cell
+        }
+
+        // Networks table
+        if tableView == networksTableView {
+            let cid = NSUserInterfaceItemIdentifier("net-\(id)")
+            let cell = (tableView.makeView(withIdentifier: cid, owner: self) as? NSTableCellView)
+                ?? makeTextCell(id: cid)
+            guard row < allNetworks.count else { return cell }
+            let net = allNetworks[row]
+            switch id {
+            case "netname":   cell.textField?.stringValue = net.name;   cell.textField?.textColor = .labelColor
+            case "netdriver": cell.textField?.stringValue = net.driver; cell.textField?.textColor = .secondaryLabelColor
+            case "netscope":  cell.textField?.stringValue = net.scope;  cell.textField?.textColor = .secondaryLabelColor
+            default: break
+            }
+            return cell
+        }
+
+        // Compose table
+        if tableView == composeTableView {
+            let cid = NSUserInterfaceItemIdentifier("comp-\(id)")
+            let cell = (tableView.makeView(withIdentifier: cid, owner: self) as? NSTableCellView)
+                ?? makeTextCell(id: cid)
+            let projects = composeProjects
+            guard row < projects.count else { return cell }
+            let proj = projects[row]
+            let running = proj.containers.filter { $0.isRunning }.count
+            let total   = proj.containers.count
+            switch id {
+            case "cproject":
+                cell.textField?.stringValue = proj.name
+                cell.textField?.textColor   = .labelColor
+            case "ccount":
+                cell.textField?.stringValue = "\(total)"
+                cell.textField?.textColor   = .secondaryLabelColor
+            case "cstatus":
+                if running == total {
+                    cell.textField?.stringValue = "✅ All running"
+                    cell.textField?.textColor   = .systemGreen
+                } else if running == 0 {
+                    cell.textField?.stringValue = "⛔ Stopped"
+                    cell.textField?.textColor   = .tertiaryLabelColor
+                } else {
+                    cell.textField?.stringValue = "⚠ \(running)/\(total) running"
+                    cell.textField?.textColor   = .systemOrange
+                }
             default: break
             }
             return cell
