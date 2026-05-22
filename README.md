@@ -26,6 +26,11 @@ macOS menu bar app to manage [Colima](https://github.com/abiosoft/colima) + [Por
 - **Container filter** — toggle All / Running only (persisted)
 - **Per-container CPU & RAM** — live stats per row: CPU%, used / limit (%) — refreshed every 5 s
 - **Real-time aggregate CPU & RAM** — totals + global RAM% shown in panel header
+- **Health check status** — `●` colored indicator (green/yellow/red) per container showing health check state
+- **Clickable port URLs** — each port number in the panel is a link, click opens `http://localhost:PORT` in browser
+- **CPU/RAM sparklines** — mini area chart history (up to 20 points) shown in detail zone when a container is selected
+- **Image management** — "Images" tab: list all images with size and date, pull new images, delete existing ones
+- **Volume management** — "Volumes" tab: list all volumes with size, prune unused volumes
 - **Exposed ports** — host port numbers shown per container
 - **Copy container ID** — one click copies the full container ID to clipboard
 - **Quick logs** — opens `docker logs -f` in Terminal
@@ -39,6 +44,12 @@ macOS menu bar app to manage [Colima](https://github.com/abiosoft/colima) + [Por
 - **Colima update detection** — `🔄 Colima X.Y.Z update available` when brew has a newer version
 - **French / English** — follows system language, manual toggle in Settings
 - **Launch at login** — app only, Colima auto-start is a separate opt-in setting
+
+## Roadmap
+
+No planned features at this time.
+
+---
 
 ## Requirements
 
@@ -90,6 +101,11 @@ open /Applications/ColimaBar.app
 | Change language | Settings → Language |
 | Launch at login | Settings → Launch app at login |
 | Upgrade Colima | Click icon → 🔄 update item (shown when available) |
+| View images | Panel → Images tab |
+| Pull an image | Panel → Images tab → type name → Pull |
+| Delete an image | Panel → Images tab → select → Delete |
+| View volumes | Panel → Volumes tab |
+| Prune volumes | Panel → Volumes tab → 🗑 Prune volumes… |
 
 Portainer runs at **https://localhost:9443** (accept self-signed certificate on first visit).
 
