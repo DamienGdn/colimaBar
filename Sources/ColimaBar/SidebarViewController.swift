@@ -44,6 +44,10 @@ final class SidebarViewController: NSViewController {
 
         tableView.selectRowIndexes(IndexSet(integer: 0), byExtendingSelection: false)
     }
+
+    func selectItem(at index: Int) {
+        tableView.selectRowIndexes(IndexSet(integer: index), byExtendingSelection: false)
+    }
 }
 
 extension SidebarViewController: NSTableViewDataSource {

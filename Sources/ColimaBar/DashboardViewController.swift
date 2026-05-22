@@ -3,7 +3,7 @@ import AppKit
 import ColimaBarCore
 
 final class DashboardViewController: NSSplitViewController {
-    private let sidebarVC = SidebarViewController()
+    let sidebarVC = SidebarViewController()
     private let contentContainer = NSViewController()
     private var currentContentVC: NSViewController?
 
@@ -17,7 +17,7 @@ final class DashboardViewController: NSSplitViewController {
     // Stubs replaced phase by phase:
     lazy var volumeVC: VolumeBrowserViewController = VolumeBrowserViewController()
     lazy var composeVC: ComposeEditorViewController = ComposeEditorViewController()
-    lazy var logsVC: NSViewController     = makeStub("Enhanced Logs — Phase 4")
+    lazy var logsVC: EnhancedLogsViewController = EnhancedLogsViewController()
     lazy var snapshotVC: NSViewController = makeStub("Snapshots — Phase 5")
     private lazy var settingsVC: SettingsPanelViewController = {
         let vc = SettingsPanelViewController()
@@ -49,11 +49,18 @@ final class DashboardViewController: NSSplitViewController {
         }
         volumeVC.updateContainers(state.containers)
         composeVC.updateContainers(state.containers)
+        logsVC.updateContainers(state.containers)
         if case .running = state.colima {
             settingsVC.isColimaRunning = true
         } else {
             settingsVC.isColimaRunning = false
         }
+    }
+
+    func selectSidebarItem(at index: Int) {
+        guard index >= 0 && index < 5 else { return }
+        sidebarVC.selectItem(at: index)
+        showContent(for: index)
     }
 
     private func showContent(for index: Int) {
@@ -105,7 +112,10 @@ final class DashboardViewController: NSSplitViewController {
                 if case .success = result { mgr.startContainer(name) { _ in } }
             }
         }
-        vc.onLogs           = { _ in }  // Wired in Phase 4
+        vc.onLogs = { [weak self] name in
+            self?.selectSidebarItem(at: 3)
+            self?.logsVC.showLogs(for: name)
+        }
         vc.onShell          = { _, _ in }
         vc.onFetchImages    = { completion in mgr.fetchImages(completion: completion) }
         vc.onDeleteImage    = { id, completion in mgr.deleteImage(id, completion: completion) }
