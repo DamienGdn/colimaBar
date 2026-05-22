@@ -33,6 +33,7 @@ final class EnhancedLogsViewController: NSViewController {
     // MARK: - Public
 
     func updateContainers(_ all: [DockerContainer]) {
+        if !isViewLoaded { _ = view }
         let running = all.filter { $0.isRunning }
         containers = running
         let selected = currentContainer?.name

@@ -36,6 +36,7 @@ final class ComposeEditorViewController: NSViewController {
     // MARK: - Public
 
     func updateContainers(_ containers: [DockerContainer]) {
+        if !isViewLoaded { _ = view }
         projects = DockerComposeService.listProjects(from: containers)
         projectPicker.removeAllItems()
         if projects.isEmpty {
