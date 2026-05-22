@@ -446,6 +446,22 @@ public final class ColimaManager {
         }
     }
 
+    public func setRestartPolicy(_ policy: String, container: String,
+                                 completion: @escaping (Result<Void, Error>) -> Void) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            let result = self.shell.run(self.dockerPath,
+                                       args: ["update", "--restart=\(policy)", container])
+            if result.exitCode == 0 {
+                DispatchQueue.main.async { completion(.success(())) }
+            } else {
+                let msg = result.error.isEmpty
+                    ? "docker update --restart=\(policy) \(container) failed"
+                    : result.error
+                DispatchQueue.main.async { completion(.failure(ShellError(message: msg))) }
+            }
+        }
+    }
+
     // MARK: - Private helpers
 
     private func waitForSocket() {
@@ -483,6 +499,7 @@ public final class ColimaManager {
         var usage: ResourceUsage? = nil
         var containerStats: [String: ResourceUsage] = [:]
         var containers: [DockerContainer] = []
+        var restartPolicies: [String: String] = [:]
         if isRunning {
             let r = shell.run(dockerPath, args: [
                 "ps", "-a",
@@ -505,6 +522,14 @@ public final class ColimaManager {
 
             let containerResult = shell.run(dockerPath, args: ["ps", "-a", "--format", "{{json .}}"])
             containers = Self.parseDockerContainers(containerResult.output)
+
+            if !containers.isEmpty {
+                var inspectArgs = ["inspect", "--format",
+                                   "{{slice .Name 1}}\t{{.HostConfig.RestartPolicy.Name}}"]
+                inspectArgs.append(contentsOf: containers.map { $0.id })
+                let inspectResult = shell.run(dockerPath, args: inspectArgs)
+                restartPolicies = Self.parseRestartPolicies(inspectResult.output)
+            }
         }
 
         return ColimaAppState(
@@ -514,7 +539,8 @@ public final class ColimaManager {
             portainerExists: portainerExists,
             usage: usage,
             containerStats: containerStats,
-            containers: containers
+            containers: containers,
+            restartPolicies: restartPolicies
         )
     }
 }
