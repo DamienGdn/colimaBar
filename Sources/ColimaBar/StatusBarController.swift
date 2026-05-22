@@ -32,6 +32,7 @@ final class StatusBarController {
     private var settingsPanelVC: SettingsPanelViewController!
     private var previousContainerStates: [String: DockerContainer.ContainerState] = [:]
     private let logsWindowController = LogsWindowController()
+    var onStateUpdate: ((ColimaAppState) -> Void)?
     private var consecutiveHighCPU:   Int      = 0
     private var consecutiveHighRAM:   Int      = 0
     private var lastKnownInstances:   [String] = ["default"]
@@ -250,6 +251,13 @@ final class StatusBarController {
         settingsItem.target = self
         menu.addItem(settingsItem)
 
+        let dashboardItem = NSMenuItem(
+            title: L.t("📊 Ouvrir le Dashboard", "📊 Open Dashboard"),
+            action: #selector(openDashboard),
+            keyEquivalent: "d")
+        dashboardItem.target = self
+        menu.addItem(dashboardItem)
+
         menu.addItem(NSMenuItem.separator())
 
         quitItem = NSMenuItem(
@@ -299,6 +307,8 @@ final class StatusBarController {
                 self?.rebuildInstanceSubmenu()
             }
         }
+
+        onStateUpdate?(state)
     }
 
     private func updateIcon(colima: ColimaRunningState) {
@@ -442,6 +452,10 @@ final class StatusBarController {
     }
 
     // MARK: - Actions
+
+    @objc private func openDashboard() {
+        (NSApp.delegate as? AppDelegate)?.dashboardWindowController.showDashboard()
+    }
 
     @objc private func startColima() {
         (NSApp.delegate as? AppDelegate)?.showSuccess(L.t("Démarrage de Colima…", "Starting Colima…"))

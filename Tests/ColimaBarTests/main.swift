@@ -47,6 +47,31 @@ test_composeProject_found()
 test_composeProject_nil_noLabel()
 test_composeProject_nil_otherLabels()
 
+test_listFiles_parsesLsOutput()
+test_listFiles_emptyOutput()
+test_listFiles_totalLineFiltered()
+test_execShellCommand_containerNotRunning()
+test_execShellCommand_callsDockerExec()
+
+test_findComposeFile_withWorkingDirAndConfigFiles()
+test_findComposeFile_withAbsoluteConfigFiles()
+test_findComposeFile_noLabels()
+test_findComposeFile_missingWorkingDir()
+test_composeProjects_groupsContainersByProject()
+
+test_logFilter_errorLevel()
+test_logFilter_warnLevel()
+test_logFilter_successLevel()
+test_logFilter_queryFiltersLines()
+test_logFilter_queryCaseInsensitive()
+test_logFilter_emptyQuery_returnsAll()
+test_logFilter_extractErrorLines()
+
+test_snapshotService_parseSnapshotFilename()
+test_snapshotService_skipNonQcow2()
+test_snapshotService_snapshotPath_construction()
+test_snapshotService_createCallsStopCopyStart()
+
 print("\n\(_passed) passed, \(_failed) failed")
 if _failed > 0 {
     exit(1)

@@ -69,6 +69,16 @@ public struct DockerContainer: Equatable {
         let v = String(kv.dropFirst(prefix.count))
         return v.isEmpty ? nil : v
     }
+
+    // Extracts a label value by key from the raw comma-separated label string
+    public func labelValue(forKey key: String) -> String? {
+        let prefix = "\(key)="
+        guard let kv = labels.components(separatedBy: ",").first(where: { $0.hasPrefix(prefix) }) else {
+            return nil
+        }
+        let v = String(kv.dropFirst(prefix.count))
+        return v.isEmpty ? nil : v
+    }
 }
 
 struct DockerContainerJSON: Codable {
