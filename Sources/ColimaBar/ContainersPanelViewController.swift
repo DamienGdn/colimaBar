@@ -49,6 +49,7 @@ final class ContainersPanelViewController: NSViewController {
     private var displayed:       [DockerContainer] = []
     private var usage:           ResourceUsage?
     private var containerStats:  [String: ResourceUsage] = [:]
+    private var restartPolicies: [String: String] = [:]
     private var searchText       = ""
     private var currentSortDesc: NSSortDescriptor? = nil
 
@@ -88,11 +89,13 @@ final class ContainersPanelViewController: NSViewController {
     }
 
     func update(containers: [DockerContainer], usage: ResourceUsage?,
-                containerStats: [String: ResourceUsage] = [:]) {
+                containerStats: [String: ResourceUsage] = [:],
+                restartPolicies: [String: String] = [:]) {
         updateHistoryBuffers(containers: containers, stats: containerStats)
-        allContainers       = containers
-        self.usage          = usage
-        self.containerStats = containerStats
+        allContainers        = containers
+        self.usage           = usage
+        self.containerStats  = containerStats
+        self.restartPolicies = restartPolicies
         guard isViewLoaded else { return }
         applyFilter()
         refreshStats()
@@ -199,13 +202,14 @@ final class ContainersPanelViewController: NSViewController {
         tableView.headerView = NSTableHeaderView()
 
         for (id, title, width) in [
-            ("state",  "",                               22.0),
-            ("name",   L.t("Nom", "Name"),             160.0),
-            ("image",  L.t("Image", "Image"),           150.0),
-            ("status", L.t("Statut", "Status"),          90.0),
-            ("ports",  L.t("Ports", "Ports"),           100.0),
-            ("cpu",    "CPU %",                          65.0),
-            ("ram",    "RAM",                           130.0),
+            ("state",   "",                                22.0),
+            ("name",    L.t("Nom", "Name"),              160.0),
+            ("image",   L.t("Image", "Image"),            150.0),
+            ("status",  L.t("Statut", "Status"),           90.0),
+            ("restart", L.t("Restart", "Restart"),         70.0),
+            ("ports",   L.t("Ports", "Ports"),            100.0),
+            ("cpu",     "CPU %",                           65.0),
+            ("ram",     "RAM",                            100.0),
         ] as [(String, String, CGFloat)] {
             let col = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(id))
             col.title    = title
@@ -493,7 +497,10 @@ final class ContainersPanelViewController: NSViewController {
         let base = ColimaConfig.showAllContainers ? allContainers : allContainers.filter { $0.isRunning }
         displayed = searchText.isEmpty
             ? base
-            : base.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
+            : base.filter {
+                $0.name.localizedCaseInsensitiveContains(searchText) ||
+                $0.image.localizedCaseInsensitiveContains(searchText)
+            }
         if let sd = currentSortDesc { sortDisplayed(by: sd) }
         tableView?.reloadData()
         if let name = selectedName,
@@ -878,6 +885,14 @@ extension ContainersPanelViewController: NSTableViewDataSource, NSTableViewDeleg
         case "status":
             cell.textField?.stringValue = c.status
             cell.textField?.textColor   = .secondaryLabelColor
+        case "restart":
+            let policy = restartPolicies[c.name] ?? ""
+            switch policy {
+            case "always":         cell.textField?.stringValue = "↺ always";  cell.textField?.textColor = .secondaryLabelColor
+            case "on-failure":     cell.textField?.stringValue = "⚠ on-fail"; cell.textField?.textColor = .secondaryLabelColor
+            case "unless-stopped": cell.textField?.stringValue = "◎ unless";  cell.textField?.textColor = .secondaryLabelColor
+            default:               cell.textField?.stringValue = "—";          cell.textField?.textColor = .tertiaryLabelColor
+            }
         case "cpu":
             if let s = containerStats[c.name], c.isRunning {
                 cell.textField?.stringValue = String(format: "%.1f%%", s.cpuPercent)
