@@ -514,6 +514,26 @@ public final class ColimaManager {
         }
     }
 
+    public func fetchNetworks(completion: @escaping ([DockerNetwork]) -> Void) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            let result = self.shell.run(self.dockerPath, args: ["network", "ls", "--format", "{{json .}}"])
+            let networks = result.exitCode == 0 ? Self.parseDockerNetworks(result.output) : []
+            DispatchQueue.main.async { completion(networks) }
+        }
+    }
+
+    public func pruneNetworks(completion: @escaping (Result<String, Error>) -> Void) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            let result = self.shell.run(self.dockerPath, args: ["network", "prune", "-f"])
+            if result.exitCode == 0 {
+                DispatchQueue.main.async { completion(.success(result.output)) }
+            } else {
+                let msg = result.error.isEmpty ? "docker network prune failed" : result.error
+                DispatchQueue.main.async { completion(.failure(ShellError(message: msg))) }
+            }
+        }
+    }
+
     // MARK: - Private helpers
 
     private func waitForSocket() {
