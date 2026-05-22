@@ -190,10 +190,12 @@ final class StatusBarController {
         stopItem.target = self
         menu.addItem(stopItem)
 
-        let instanceItem = NSMenuItem(title: L.t("Instance", "Instance"), action: nil, keyEquivalent: "")
-        instanceItem.submenu = NSMenu()
-        instanceSubmenuItem  = instanceItem
-        menu.addItem(instanceItem)
+        let dashboardItem = NSMenuItem(
+            title: L.t("📊 Ouvrir le Dashboard", "📊 Open Dashboard"),
+            action: #selector(openDashboard),
+            keyEquivalent: "d")
+        dashboardItem.target = self
+        menu.addItem(dashboardItem)
 
         menu.addItem(NSMenuItem.separator())
 
@@ -244,19 +246,17 @@ final class StatusBarController {
 
         menu.addItem(NSMenuItem.separator())
 
+        let instanceItem = NSMenuItem(title: L.t("Instance", "Instance"), action: nil, keyEquivalent: "")
+        instanceItem.submenu = NSMenu()
+        instanceSubmenuItem  = instanceItem
+        menu.addItem(instanceItem)
+
         let settingsItem = NSMenuItem(
             title: "⚙ \(L.t("Paramètres", "Settings")) →",
             action: #selector(openSettingsPanel),
             keyEquivalent: "")
         settingsItem.target = self
         menu.addItem(settingsItem)
-
-        let dashboardItem = NSMenuItem(
-            title: L.t("📊 Ouvrir le Dashboard", "📊 Open Dashboard"),
-            action: #selector(openDashboard),
-            keyEquivalent: "d")
-        dashboardItem.target = self
-        menu.addItem(dashboardItem)
 
         menu.addItem(NSMenuItem.separator())
 
