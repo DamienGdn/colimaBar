@@ -41,7 +41,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func showError(_ message: String) {
         let content = UNMutableNotificationContent()
-        content.title = "ColimaBar"
+        content.title = "Colimar Desktop"
         content.body = message
         let request = UNNotificationRequest(
             identifier: UUID().uuidString,
@@ -53,7 +53,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func showSuccess(_ message: String) {
         let content = UNMutableNotificationContent()
-        content.title = "ColimaBar"
+        content.title = "Colimar Desktop"
         content.body = message
         content.sound = .default
         let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)

@@ -15,7 +15,7 @@ final class DashboardWindowController: NSWindowController {
             backing: .buffered,
             defer: false
         )
-        window.title = "ColimaBar Dashboard"
+        window.title = "Colimar Desktop"
         window.center()
         window.contentViewController = dashboardVC
         super.init(window: window)

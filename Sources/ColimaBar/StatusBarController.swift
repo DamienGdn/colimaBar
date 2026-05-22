@@ -333,7 +333,7 @@ final class StatusBarController {
 
     private func colimaIcon(bubbleColor: NSColor) -> NSImage {
         let base = NSImage(named: "colimabar")
-            ?? NSImage(systemSymbolName: "shippingbox.fill", accessibilityDescription: "ColimaBar")!
+            ?? NSImage(systemSymbolName: "shippingbox.fill", accessibilityDescription: "Colimar Desktop")!
         let size = NSSize(width: 22, height: 22)
         let result = NSImage(size: size, flipped: false) { rect in
             // Llama in neutral labelColor (adapts dark/light menu bar)
