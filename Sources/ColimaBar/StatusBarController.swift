@@ -81,8 +81,8 @@ final class StatusBarController {
         containersPanelVC.onLogs = { [weak self] name in
             self?.openLogsTerminal(containerName: name)
         }
-        containersPanelVC.onShell = { [weak self] name in
-            self?.openShellTerminal(containerName: name)
+        containersPanelVC.onShell = { [weak self] name, command in
+            self?.openShellTerminal(containerName: name, command: command)
         }
         containersPanelVC.onFetchImages = { [weak self] completion in
             self?.manager.fetchImages(completion: completion)
@@ -500,8 +500,8 @@ final class StatusBarController {
         runInTerminal("docker logs -f \(name)")
     }
 
-    private func openShellTerminal(containerName name: String) {
-        runInTerminal("docker exec -it \(name) sh")
+    private func openShellTerminal(containerName name: String, command: String) {
+        runInTerminal("docker exec -it \(name) \(command)")
     }
 
     private func runInTerminal(_ command: String) {

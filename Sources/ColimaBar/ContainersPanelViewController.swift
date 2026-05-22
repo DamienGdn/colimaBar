@@ -9,7 +9,7 @@ final class ContainersPanelViewController: NSViewController {
     var onStop:       ((String) -> Void)?
     var onRestart:    ((String) -> Void)?
     var onLogs:       ((String) -> Void)?
-    var onShell:      ((String) -> Void)?
+    var onShell:      ((String, String) -> Void)?   // (containerName, command)
     var onFetchImages: ((@escaping ([DockerImage]) -> Void) -> Void)?
     var onDeleteImage: ((String, @escaping (Result<Void, Error>) -> Void) -> Void)?
     var onPullImage:   ((String, @escaping (Result<Void, Error>) -> Void) -> Void)?
@@ -678,7 +678,18 @@ final class ContainersPanelViewController: NSViewController {
     }
 
     private func showExecDialog(for container: DockerContainer) {
-        onShell?(container.name)
+        let alert = NSAlert()
+        alert.messageText     = "Shell into \(container.name)"
+        alert.informativeText = L.t("Commande à exécuter :", "Command to execute:")
+        let tf = NSTextField(frame: NSRect(x: 0, y: 0, width: 300, height: 22))
+        tf.stringValue = "sh"
+        alert.accessoryView = tf
+        alert.addButton(withTitle: L.t("Exécuter", "Run"))
+        alert.addButton(withTitle: L.t("Annuler", "Cancel"))
+        alert.window.initialFirstResponder = tf
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        let cmd = tf.stringValue.trimmingCharacters(in: .whitespaces)
+        onShell?(container.name, cmd.isEmpty ? "sh" : cmd)
     }
 
     // MARK: - Sparklines
@@ -762,7 +773,10 @@ final class ContainersPanelViewController: NSViewController {
     @objc private func stopAction()    { guard let c = selected() else { return }; onStop?(c.name) }
     @objc private func restartAction() { guard let c = selected() else { return }; onRestart?(c.name) }
     @objc private func logsAction()    { guard let c = selected() else { return }; onLogs?(c.name) }
-    @objc private func shellAction()   { guard let c = selected() else { return }; onShell?(c.name) }
+    @objc private func shellAction() {
+        guard let c = selected() else { return }
+        showExecDialog(for: c)
+    }
 
     // MARK: - Images actions
 
