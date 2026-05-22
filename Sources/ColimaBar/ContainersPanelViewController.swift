@@ -15,6 +15,9 @@ final class ContainersPanelViewController: NSViewController {
     var onPullImage:   ((String, @escaping (Result<Void, Error>) -> Void) -> Void)?
     var onFetchVolumes: ((@escaping ([DockerVolume]) -> Void) -> Void)?
     var onPruneVolumes: ((@escaping (Result<String, Error>) -> Void) -> Void)?
+    var onSetRestartPolicy: ((String, String, @escaping (Result<Void, Error>) -> Void) -> Void)?
+    var onFetchEnvVars:     ((String, @escaping ([String]) -> Void) -> Void)?
+    var onInspect:          ((String) -> Void)?
 
     // MARK: - Tab
 
@@ -44,6 +47,8 @@ final class ContainersPanelViewController: NSViewController {
     private var ramSparkline:                 SparklineView!
     private var ramValueLbl:                  NSTextField!
     private var sparklineZoneHeightConstraint: NSLayoutConstraint!
+
+    private var contextMenu = NSMenu()
 
     private var allContainers:   [DockerContainer] = []
     private var displayed:       [DockerContainer] = []
@@ -337,6 +342,9 @@ final class ContainersPanelViewController: NSViewController {
             btnStack.heightAnchor.constraint(equalToConstant: 24),
         ])
 
+        tableView.menu = contextMenu
+        contextMenu.delegate = self
+
         refreshStats()
         updateButtons()
     }
@@ -554,6 +562,123 @@ final class ContainersPanelViewController: NSViewController {
     private func selected() -> DockerContainer? {
         let r = tableView.selectedRow
         return (r >= 0 && r < displayed.count) ? displayed[r] : nil
+    }
+
+    private func rebuildContextMenu(for c: DockerContainer) {
+        contextMenu.removeAllItems()
+
+        let startItem = NSMenuItem(title: L.t("▶ Démarrer", "▶ Start"),
+                                   action: #selector(menuStart), keyEquivalent: "")
+        startItem.target = self; startItem.isEnabled = !c.isRunning
+        contextMenu.addItem(startItem)
+
+        let stopItem = NSMenuItem(title: L.t("■ Arrêter", "■ Stop"),
+                                  action: #selector(menuStop), keyEquivalent: "")
+        stopItem.target = self; stopItem.isEnabled = c.isRunning
+        contextMenu.addItem(stopItem)
+
+        let restartItem = NSMenuItem(title: L.t("↺ Restart", "↺ Restart"),
+                                     action: #selector(menuRestart), keyEquivalent: "")
+        restartItem.target = self; restartItem.isEnabled = c.isRunning
+        contextMenu.addItem(restartItem)
+
+        contextMenu.addItem(.separator())
+
+        let logsItem = NSMenuItem(title: L.t("Logs", "Logs"),
+                                  action: #selector(menuLogs), keyEquivalent: "")
+        logsItem.target = self
+        contextMenu.addItem(logsItem)
+
+        let shellItem = NSMenuItem(title: L.t("Shell…", "Shell…"),
+                                   action: #selector(menuShell), keyEquivalent: "")
+        shellItem.target = self; shellItem.isEnabled = c.isRunning
+        contextMenu.addItem(shellItem)
+
+        contextMenu.addItem(.separator())
+
+        let copyItem = NSMenuItem(title: L.t("Copier l'ID", "Copy ID"),
+                                  action: #selector(menuCopyID), keyEquivalent: "")
+        copyItem.target = self
+        contextMenu.addItem(copyItem)
+
+        for port in c.hostPortNumbers {
+            let portItem = NSMenuItem(title: "Open Port \(port)",
+                                      action: #selector(menuOpenPort(_:)), keyEquivalent: "")
+            portItem.target = self; portItem.tag = port
+            contextMenu.addItem(portItem)
+        }
+
+        contextMenu.addItem(.separator())
+
+        let filterItem = NSMenuItem(title: L.t("Filtrer par cette image", "Filter by this image"),
+                                    action: #selector(menuFilterByImage), keyEquivalent: "")
+        filterItem.target = self
+        contextMenu.addItem(filterItem)
+
+        contextMenu.addItem(.separator())
+
+        let policySubmenu = NSMenu()
+        let currentPolicy = restartPolicies[c.name] ?? "no"
+        for policy in ["always", "on-failure", "unless-stopped", "no"] {
+            let item = NSMenuItem(title: policy, action: #selector(menuSetPolicy(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = policy
+            item.state = currentPolicy == policy ? .on : .off
+            policySubmenu.addItem(item)
+        }
+        let policyItem = NSMenuItem(title: L.t("Restart policy", "Restart policy"),
+                                    action: nil, keyEquivalent: "")
+        policyItem.submenu = policySubmenu
+        contextMenu.addItem(policyItem)
+
+        let inspectItem = NSMenuItem(title: L.t("Inspect", "Inspect"),
+                                     action: #selector(menuInspect), keyEquivalent: "")
+        inspectItem.target = self
+        contextMenu.addItem(inspectItem)
+    }
+
+    private func clickedContainer() -> DockerContainer? {
+        let row = tableView.clickedRow
+        guard row >= 0 && row < displayed.count else { return nil }
+        return displayed[row]
+    }
+
+    @objc private func menuStart()   { guard let c = clickedContainer() else { return }; onStart?(c.name) }
+    @objc private func menuStop()    { guard let c = clickedContainer() else { return }; onStop?(c.name) }
+    @objc private func menuRestart() { guard let c = clickedContainer() else { return }; onRestart?(c.name) }
+    @objc private func menuLogs()    { guard let c = clickedContainer() else { return }; onLogs?(c.name) }
+    @objc private func menuShell()   { guard let c = clickedContainer() else { return }; showExecDialog(for: c) }
+
+    @objc private func menuCopyID() {
+        guard let c = clickedContainer() else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(c.id, forType: .string)
+    }
+
+    @objc private func menuOpenPort(_ sender: NSMenuItem) {
+        NSWorkspace.shared.open(URL(string: "http://localhost:\(sender.tag)")!)
+    }
+
+    @objc private func menuFilterByImage() {
+        guard let c = clickedContainer() else { return }
+        searchField.stringValue = c.image
+        searchText = c.image
+        applyFilter()
+    }
+
+    @objc private func menuSetPolicy(_ sender: NSMenuItem) {
+        guard let c = clickedContainer(),
+              let policy = sender.representedObject as? String else { return }
+        onSetRestartPolicy?(policy, c.name) { _ in }
+    }
+
+    @objc private func menuInspect() {
+        guard let c = clickedContainer() else { return }
+        onInspect?(c.name)
+    }
+
+    private func showExecDialog(for container: DockerContainer) {
+        onShell?(container.name)
     }
 
     // MARK: - Sparklines
@@ -950,5 +1075,18 @@ extension ContainersPanelViewController: NSTableViewDataSource, NSTableViewDeleg
         sortDisplayed(by: sd)
         tableView.reloadData()
         updateButtons()
+    }
+}
+
+// MARK: - NSMenuDelegate
+
+extension ContainersPanelViewController: NSMenuDelegate {
+    func menuWillOpen(_ menu: NSMenu) {
+        let row = tableView.clickedRow
+        guard row >= 0 && row < displayed.count else {
+            menu.removeAllItems()
+            return
+        }
+        rebuildContextMenu(for: displayed[row])
     }
 }
