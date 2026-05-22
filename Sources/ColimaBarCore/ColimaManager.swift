@@ -169,6 +169,18 @@ public final class ColimaManager {
         return names.isEmpty ? ["default"] : names
     }
 
+    // Parses `docker network ls --format '{{json .}}'` NDJSON output.
+    public static func parseDockerNetworks(_ output: String) -> [DockerNetwork] {
+        output.components(separatedBy: .newlines)
+            .filter { !$0.isEmpty }
+            .compactMap { line in
+                guard let data = line.data(using: .utf8),
+                      let n = try? JSONDecoder().decode(DockerNetworkJSON.self, from: data)
+                else { return nil }
+                return DockerNetwork(id: n.ID, name: n.Name, driver: n.Driver, scope: n.Scope)
+            }
+    }
+
     // Parses `docker stats --no-stream --format "{{.CPUPerc}}\t{{.MemUsage}}"` output.
     public static func parseDockerStats(_ output: String) -> ResourceUsage? {
         var totalCPU = 0.0

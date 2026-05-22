@@ -396,3 +396,24 @@ func test_parseRestartPolicies_emptyPolicy() {
     let policies = ColimaManager.parseRestartPolicies(output)
     checkEqual(policies["my-container"], "", "empty policy stored as empty string")
 }
+
+// MARK: - parseDockerNetworks tests
+
+private let networkTwoLines = """
+{"ID":"abc123","Name":"bridge","Driver":"bridge","Scope":"local"}
+{"ID":"def456","Name":"myapp_default","Driver":"bridge","Scope":"local"}
+"""
+
+func test_parseDockerNetworks_multiple() {
+    let nets = ColimaManager.parseDockerNetworks(networkTwoLines)
+    check(nets.count == 2, "2 networks")
+    checkEqual(nets[0].name, "bridge", "first = bridge")
+    checkEqual(nets[0].driver, "bridge", "driver = bridge")
+    checkEqual(nets[1].name, "myapp_default", "second name")
+    checkEqual(nets[0].scope, "local", "scope = local")
+}
+
+func test_parseDockerNetworks_empty() {
+    check(ColimaManager.parseDockerNetworks("").isEmpty, "empty → empty array")
+    check(ColimaManager.parseDockerNetworks("not json").isEmpty, "invalid → empty array")
+}

@@ -41,6 +41,8 @@ test_parseDockerVolumes_bindMounts_ignored()
 test_parseRestartPolicies_multiple()
 test_parseRestartPolicies_empty()
 test_parseRestartPolicies_emptyPolicy()
+test_parseDockerNetworks_multiple()
+test_parseDockerNetworks_empty()
 
 print("\n\(_passed) passed, \(_failed) failed")
 if _failed > 0 {
