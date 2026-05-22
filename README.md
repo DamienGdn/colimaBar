@@ -6,7 +6,7 @@ macOS menu bar app to manage [Colima](https://github.com/abiosoft/colima) + [Por
 
 ![Screenshot](docs/screenshot.png)
 
-![macOS 13+](https://img.shields.io/badge/macOS-13%2B-blue) ![Apple Silicon](https://img.shields.io/badge/Apple%20Silicon-M1%2FM2%2FM3-green) ![Swift](https://img.shields.io/badge/Swift-5.9-orange)
+![macOS 13+](https://img.shields.io/badge/macOS-13%2B-blue) ![Apple Silicon](https://img.shields.io/badge/Apple%20Silicon-M1%2FM2%2FM3-green) ![Swift](https://img.shields.io/badge/Swift-5.9-orange) ![v1.7.0](https://img.shields.io/badge/version-1.7.0-informational)
 
 ---
 
@@ -44,6 +44,10 @@ macOS menu bar app to manage [Colima](https://github.com/abiosoft/colima) + [Por
 - **Colima update detection** — `🔄 Colima X.Y.Z update available` when brew has a newer version
 - **French / English** — follows system language, manual toggle in Settings
 - **Launch at login** — app only, Colima auto-start is a separate opt-in setting
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for full version history.
 
 ## Roadmap
 
