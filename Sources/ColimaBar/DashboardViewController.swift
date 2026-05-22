@@ -16,7 +16,7 @@ final class DashboardViewController: NSSplitViewController {
     }()
     // Stubs replaced phase by phase:
     lazy var volumeVC: VolumeBrowserViewController = VolumeBrowserViewController()
-    lazy var composeVC: NSViewController  = makeStub("Compose Editor — Phase 3")
+    lazy var composeVC: ComposeEditorViewController = ComposeEditorViewController()
     lazy var logsVC: NSViewController     = makeStub("Enhanced Logs — Phase 4")
     lazy var snapshotVC: NSViewController = makeStub("Snapshots — Phase 5")
     private lazy var settingsVC: SettingsPanelViewController = {
@@ -48,6 +48,7 @@ final class DashboardViewController: NSSplitViewController {
                                 restartPolicies: state.restartPolicies)
         }
         volumeVC.updateContainers(state.containers)
+        composeVC.updateContainers(state.containers)
         if case .running = state.colima {
             settingsVC.isColimaRunning = true
         } else {
