@@ -47,6 +47,12 @@ test_composeProject_found()
 test_composeProject_nil_noLabel()
 test_composeProject_nil_otherLabels()
 
+test_listFiles_parsesLsOutput()
+test_listFiles_emptyOutput()
+test_listFiles_totalLineFiltered()
+test_execShellCommand_containerNotRunning()
+test_execShellCommand_callsDockerExec()
+
 print("\n\(_passed) passed, \(_failed) failed")
 if _failed > 0 {
     exit(1)
