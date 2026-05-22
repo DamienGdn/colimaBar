@@ -1,5 +1,22 @@
 # Changelog
 
+## v1.8.0 — 2026-05-22
+
+### New features
+
+- **Context menu** — right-click any container row: start/stop/restart, logs, shell, copy ID, open port(s), filter by image, change restart policy, inspect
+- **Restart policy column** — shows each container's restart policy (↺ always / ⚠ on-fail / ◎ unless / —); change via context menu → `docker update --restart`
+- **Custom exec command** — Shell button prompts for the command before opening Terminal (default `sh`)
+- **Environment variables** — new "Env" button opens a popover with all KEY=VALUE env vars; copy-all button
+- **Quick filter by image** — context menu → "Filter by this image" instantly filters the list
+
+### Improvements
+
+- Search field now matches both container name and image name
+- Volumes tab: "Containers" column shows which containers use each volume
+
+---
+
 ## v1.7.0 — 2026-05-22
 
 ### New features

@@ -4,9 +4,27 @@
 
 macOS menu bar app to manage [Colima](https://github.com/abiosoft/colima) + [Portainer](https://www.portainer.io/) — a lightweight Docker Desktop alternative.
 
-![Screenshot](docs/screenshot.png)
+### Containers panel
 
-![macOS 13+](https://img.shields.io/badge/macOS-13%2B-blue) ![Apple Silicon](https://img.shields.io/badge/Apple%20Silicon-M1%2FM2%2FM3-green) ![Swift](https://img.shields.io/badge/Swift-5.9-orange) ![v1.7.0](https://img.shields.io/badge/version-1.7.0-informational)
+![Containers panel](docs/screenshot-containers.png)
+
+### Sparklines + context menu
+
+| Sparklines CPU/RAM | Context menu |
+|---|---|
+| ![Sparklines](docs/screenshot-sparklines.png) | ![Context menu](docs/screenshot-context-menu.png) |
+
+### Images & Volumes tabs
+
+| Images tab | Volumes tab |
+|---|---|
+| ![Images](docs/screenshot-images.png) | ![Volumes](docs/screenshot-volumes.png) |
+
+### Settings
+
+![Settings](docs/screenshot-settings.png)
+
+![macOS 13+](https://img.shields.io/badge/macOS-13%2B-blue) ![Apple Silicon](https://img.shields.io/badge/Apple%20Silicon-M1%2FM2%2FM3-green) ![Swift](https://img.shields.io/badge/Swift-5.9-orange) ![v1.8.0](https://img.shields.io/badge/version-1.8.0-informational)
 
 ---
 
@@ -30,7 +48,13 @@ macOS menu bar app to manage [Colima](https://github.com/abiosoft/colima) + [Por
 - **Clickable port URLs** — each port number in the panel is a link, click opens `http://localhost:PORT` in browser
 - **CPU/RAM sparklines** — mini area chart history (up to 20 points) shown in detail zone when a container is selected
 - **Image management** — "Images" tab: list all images with size and date, pull new images, delete existing ones
-- **Volume management** — "Volumes" tab: list all volumes with size, prune unused volumes
+- **Volume management** — "Volumes" tab: list all volumes with size and associated containers, prune unused volumes
+- **Restart policy** — column showing each container's restart policy (always / on-failure / unless-stopped)
+- **Restart policy change** — right-click → Restart policy → select a new policy
+- **Context menu** — right-click any container row: start/stop/restart, logs, shell, copy ID, open port, filter by image, inspect
+- **Custom exec command** — Shell button prompts for the command to run (default `sh`)
+- **Environment variables** — Env button opens a popover with all KEY=VALUE env vars; copy-all button
+- **Quick filter by image** — context menu → "Filter by this image" fills the search field instantly
 - **Exposed ports** — host port numbers shown per container
 - **Copy container ID** — one click copies the full container ID to clipboard
 - **Quick logs** — opens `docker logs -f` in Terminal
