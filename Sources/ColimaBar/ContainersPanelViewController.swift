@@ -95,8 +95,16 @@ final class ContainersPanelViewController: NSViewController {
     private var allNetworks:         [DockerNetwork] = []
 
     // Compose tab
-    private var composeTableView:    NSTableView!
-    private var composeScrollView:   NSScrollView!
+    private var composeOutlineView:   NSOutlineView!
+    private var composeOutlineScroll: NSScrollView!
+    private var cmpStartBtn:          NSButton!
+    private var cmpStopBtn:           NSButton!
+    private var cmpRestartBtn:        NSButton!
+    private var cmpLogsBtn:           NSButton!
+    private var cmpShellBtn:          NSButton!
+    private var cmpEnvBtn:            NSButton!
+    private var composeContextMenu    = NSMenu()
+    private var composeContextTarget: DockerContainer?
 
     // MARK: - Lifecycle
 
@@ -598,37 +606,63 @@ final class ContainersPanelViewController: NSViewController {
     // MARK: - Compose UI
 
     private func buildComposeUI() {
-        composeTableView = NSTableView()
-        composeTableView.style      = .plain
-        composeTableView.rowHeight  = 22
-        composeTableView.columnAutoresizingStyle = .lastColumnOnlyAutoresizingStyle
-        composeTableView.delegate   = self
-        composeTableView.dataSource = self
-        composeTableView.headerView = NSTableHeaderView()
+        composeOutlineView = NSOutlineView()
+        composeOutlineView.style                   = .plain
+        composeOutlineView.rowHeight               = 22
+        composeOutlineView.columnAutoresizingStyle = .lastColumnOnlyAutoresizingStyle
+        composeOutlineView.indentationPerLevel     = 14
+        composeOutlineView.delegate                = self
+        composeOutlineView.dataSource              = self
+        composeOutlineView.headerView              = NSTableHeaderView()
+        composeOutlineView.allowsMultipleSelection = false
+        composeOutlineView.menu                    = composeContextMenu
+        composeContextMenu.delegate                = self
 
         for (id, title, width) in [
-            ("cproject", L.t("Projet", "Project"),          240.0),
-            ("ccount",   L.t("Containers", "Containers"),    80.0),
-            ("cstatus",  L.t("Statut", "Status"),           160.0),
+            ("costate",  "",                                24.0),
+            ("coname",   L.t("Nom", "Name"),              215.0),
+            ("coimage",  L.t("Image", "Image"),            155.0),
+            ("costatus", L.t("Statut", "Status"),          140.0),
+            ("cocpu",    "CPU",                             65.0),
+            ("coram",    "RAM",                            120.0),
         ] as [(String, String, CGFloat)] {
             let col = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(id))
-            col.title = title; col.width = width; col.minWidth = 20
-            composeTableView.addTableColumn(col)
+            col.title = title; col.width = width; col.minWidth = 16
+            composeOutlineView.addTableColumn(col)
+        }
+        if let nameCol = composeOutlineView.tableColumn(withIdentifier: NSUserInterfaceItemIdentifier("coname")) {
+            composeOutlineView.outlineTableColumn = nameCol
         }
 
-        composeScrollView = NSScrollView()
-        composeScrollView.documentView          = composeTableView
-        composeScrollView.hasVerticalScroller   = true
-        composeScrollView.autohidesScrollers    = true
-        composeScrollView.borderType            = .bezelBorder
-        composeScrollView.translatesAutoresizingMaskIntoConstraints = false
-        composeContentView.addSubview(composeScrollView)
+        composeOutlineScroll = NSScrollView()
+        composeOutlineScroll.documentView        = composeOutlineView
+        composeOutlineScroll.hasVerticalScroller = true
+        composeOutlineScroll.autohidesScrollers  = true
+        composeOutlineScroll.borderType          = .bezelBorder
+        composeOutlineScroll.translatesAutoresizingMaskIntoConstraints = false
+        composeContentView.addSubview(composeOutlineScroll)
+
+        cmpStartBtn   = makeBtn(L.t("▶ Démarrer", "▶ Start"),   #selector(cmpStartAction))
+        cmpStopBtn    = makeBtn(L.t("■ Arrêter",   "■ Stop"),    #selector(cmpStopAction))
+        cmpRestartBtn = makeBtn(L.t("↺ Restart",   "↺ Restart"), #selector(cmpRestartAction))
+        cmpLogsBtn    = makeBtn(L.t("Logs",        "Logs"),       #selector(cmpLogsAction))
+        cmpShellBtn   = makeBtn(L.t("Shell…",      "Shell…"),     #selector(cmpShellAction))
+        cmpEnvBtn     = makeBtn(L.t("Env",         "Env"),        #selector(cmpEnvAction))
+        let actionBar = NSStackView(views: [cmpStartBtn, cmpStopBtn, cmpRestartBtn,
+                                            cmpLogsBtn, cmpShellBtn, cmpEnvBtn])
+        actionBar.orientation = .horizontal
+        actionBar.spacing     = 6
+        actionBar.translatesAutoresizingMaskIntoConstraints = false
+        composeContentView.addSubview(actionBar)
+        updateComposeButtons()
 
         NSLayoutConstraint.activate([
-            composeScrollView.topAnchor.constraint(equalTo: composeContentView.topAnchor, constant: 6),
-            composeScrollView.leadingAnchor.constraint(equalTo: composeContentView.leadingAnchor, constant: 8),
-            composeScrollView.trailingAnchor.constraint(equalTo: composeContentView.trailingAnchor, constant: -8),
-            composeScrollView.bottomAnchor.constraint(equalTo: composeContentView.bottomAnchor, constant: -10),
+            actionBar.leadingAnchor.constraint(equalTo: composeContentView.leadingAnchor, constant: 8),
+            actionBar.bottomAnchor.constraint(equalTo: composeContentView.bottomAnchor, constant: -8),
+            composeOutlineScroll.topAnchor.constraint(equalTo: composeContentView.topAnchor, constant: 6),
+            composeOutlineScroll.leadingAnchor.constraint(equalTo: composeContentView.leadingAnchor, constant: 8),
+            composeOutlineScroll.trailingAnchor.constraint(equalTo: composeContentView.trailingAnchor, constant: -8),
+            composeOutlineScroll.bottomAnchor.constraint(equalTo: actionBar.topAnchor, constant: -6),
         ])
     }
 
@@ -913,7 +947,7 @@ final class ContainersPanelViewController: NSViewController {
     // MARK: - Compose data
 
     private func refreshCompose() {
-        composeTableView?.reloadData()
+        composeOutlineView?.reloadData()
     }
 
     private var composeProjects: [(name: String, containers: [DockerContainer])] {
@@ -924,6 +958,79 @@ final class ContainersPanelViewController: NSViewController {
         }
         return dict.map { (name: $0.key, containers: $0.value) }
                    .sorted { $0.name < $1.name }
+    }
+
+    // MARK: - Compose helpers
+
+    private func composeSelected() -> DockerContainer? {
+        guard let ov = composeOutlineView else { return nil }
+        let r = ov.selectedRow
+        guard r >= 0 else { return nil }
+        return ov.item(atRow: r) as? DockerContainer
+    }
+
+    private func updateComposeButtons() {
+        let c = composeSelected()
+        cmpStartBtn?.isEnabled   = c != nil && !c!.isRunning
+        cmpStopBtn?.isEnabled    = c?.isRunning == true
+        cmpRestartBtn?.isEnabled = c?.isRunning == true
+        cmpLogsBtn?.isEnabled    = c != nil
+        cmpShellBtn?.isEnabled   = c?.isRunning == true
+        cmpEnvBtn?.isEnabled     = c != nil
+    }
+
+    @objc private func cmpStartAction()   { guard let c = composeSelected() else { return }; onStart?(c.name) }
+    @objc private func cmpStopAction()    { guard let c = composeSelected() else { return }; onStop?(c.name) }
+    @objc private func cmpRestartAction() { guard let c = composeSelected() else { return }; onRestart?(c.name) }
+    @objc private func cmpLogsAction()    { guard let c = composeSelected() else { return }; onLogs?(c.name) }
+    @objc private func cmpShellAction()   { guard let c = composeSelected() else { return }; showExecDialog(for: c) }
+
+    @objc private func cmpEnvAction() {
+        guard let c = composeSelected() else { return }
+        let vc = EnvVarsViewController()
+        vc.containerName = c.name
+        envPopover?.close()
+        let popover = NSPopover()
+        popover.contentViewController = vc
+        popover.behavior               = .semitransient
+        popover.contentSize            = NSSize(width: 500, height: 320)
+        envPopover = popover
+        popover.show(relativeTo: cmpEnvBtn.bounds, of: cmpEnvBtn, preferredEdge: .minY)
+        onFetchEnvVars?(c.name) { [weak vc] vars in
+            vc?.loadEnvVars(vars)
+        }
+    }
+
+    private func rebuildComposeContextMenu(for c: DockerContainer) {
+        composeContextMenu.removeAllItems()
+        func item(_ title: String, _ sel: Selector, enabled: Bool = true) -> NSMenuItem {
+            let i = NSMenuItem(title: title, action: sel, keyEquivalent: "")
+            i.target = self; i.isEnabled = enabled; return i
+        }
+        composeContextMenu.addItem(item(L.t("▶ Démarrer", "▶ Start"),   #selector(cmpMenuStart),   enabled: !c.isRunning))
+        composeContextMenu.addItem(item(L.t("■ Arrêter",   "■ Stop"),    #selector(cmpMenuStop),    enabled: c.isRunning))
+        composeContextMenu.addItem(item(L.t("↺ Restart",   "↺ Restart"), #selector(cmpMenuRestart), enabled: c.isRunning))
+        composeContextMenu.addItem(.separator())
+        composeContextMenu.addItem(item(L.t("Logs", "Logs"),             #selector(cmpMenuLogs)))
+        composeContextMenu.addItem(item(L.t("Shell…", "Shell…"),         #selector(cmpMenuShell), enabled: c.isRunning))
+        composeContextMenu.addItem(.separator())
+        composeContextMenu.addItem(item(L.t("Copier l'ID", "Copy ID"),   #selector(cmpMenuCopyID)))
+        for port in c.hostPortNumbers {
+            let pi = NSMenuItem(title: "Open Port \(port)", action: #selector(menuOpenPort(_:)), keyEquivalent: "")
+            pi.target = self; pi.tag = port
+            composeContextMenu.addItem(pi)
+        }
+    }
+
+    @objc private func cmpMenuStart()   { guard let c = composeContextTarget else { return }; onStart?(c.name) }
+    @objc private func cmpMenuStop()    { guard let c = composeContextTarget else { return }; onStop?(c.name) }
+    @objc private func cmpMenuRestart() { guard let c = composeContextTarget else { return }; onRestart?(c.name) }
+    @objc private func cmpMenuLogs()    { guard let c = composeContextTarget else { return }; onLogs?(c.name) }
+    @objc private func cmpMenuShell()   { guard let c = composeContextTarget else { return }; showExecDialog(for: c) }
+    @objc private func cmpMenuCopyID() {
+        guard let c = composeContextTarget else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(c.id, forType: .string)
     }
 
     // MARK: - Networks actions
@@ -1138,6 +1245,119 @@ final class PortsCell: NSTableCellView {
     }
 }
 
+// MARK: - NSOutlineViewDataSource / Delegate
+
+extension ContainersPanelViewController: NSOutlineViewDataSource, NSOutlineViewDelegate {
+
+    func outlineView(_ outlineView: NSOutlineView, numberOfChildrenOfItem item: Any?) -> Int {
+        if item == nil { return composeProjects.count }
+        guard let name = item as? String,
+              let proj = composeProjects.first(where: { $0.name == name }) else { return 0 }
+        return proj.containers.count
+    }
+
+    func outlineView(_ outlineView: NSOutlineView, child index: Int, ofItem item: Any?) -> Any {
+        if item == nil { return composeProjects[index].name as AnyObject }
+        guard let name = item as? String,
+              let proj = composeProjects.first(where: { $0.name == name }) else { return "" as AnyObject }
+        return proj.containers[index]
+    }
+
+    func outlineView(_ outlineView: NSOutlineView, isItemExpandable item: Any) -> Bool {
+        return item is String
+    }
+
+    func outlineView(_ outlineView: NSOutlineView,
+                     viewFor tableColumn: NSTableColumn?, item: Any) -> NSView? {
+        let id = tableColumn?.identifier.rawValue ?? ""
+
+        if let projectName = item as? String {
+            let cid = NSUserInterfaceItemIdentifier("co-proj-\(id)")
+            let cell = (outlineView.makeView(withIdentifier: cid, owner: self) as? NSTableCellView)
+                ?? makeTextCell(id: cid)
+            guard let proj = composeProjects.first(where: { $0.name == projectName }) else { return cell }
+            let running = proj.containers.filter { $0.isRunning }.count
+            let total   = proj.containers.count
+            switch id {
+            case "costate": cell.textField?.stringValue = ""
+            case "coname":
+                cell.textField?.stringValue = projectName
+                cell.textField?.font        = .boldSystemFont(ofSize: 12)
+                cell.textField?.textColor   = .labelColor
+            case "coimage":
+                cell.textField?.stringValue = "\(total) container\(total == 1 ? "" : "s")"
+                cell.textField?.font        = .systemFont(ofSize: 12)
+                cell.textField?.textColor   = .secondaryLabelColor
+            case "costatus":
+                cell.textField?.font = .systemFont(ofSize: 12)
+                if running == total {
+                    cell.textField?.stringValue = "✅ All running"; cell.textField?.textColor = .systemGreen
+                } else if running == 0 {
+                    cell.textField?.stringValue = "⛔ Stopped";     cell.textField?.textColor = .tertiaryLabelColor
+                } else {
+                    cell.textField?.stringValue = "⚠ \(running)/\(total) running"
+                    cell.textField?.textColor   = .systemOrange
+                }
+            case "cocpu", "coram": cell.textField?.stringValue = ""
+            default: break
+            }
+            return cell
+        }
+
+        if let c = item as? DockerContainer {
+            let cid = NSUserInterfaceItemIdentifier("co-ctr-\(id)")
+            let cell = (outlineView.makeView(withIdentifier: cid, owner: self) as? NSTableCellView)
+                ?? makeTextCell(id: cid)
+            cell.textField?.font = .systemFont(ofSize: 12)
+            switch id {
+            case "costate":
+                cell.textField?.stringValue = c.isRunning ? "▶" : "■"
+                cell.textField?.textColor   = c.isRunning ? .systemGreen : .tertiaryLabelColor
+            case "coname":
+                cell.textField?.stringValue = c.name
+                cell.textField?.textColor   = .labelColor
+            case "coimage":
+                cell.textField?.stringValue = c.image
+                cell.textField?.textColor   = .secondaryLabelColor
+            case "costatus":
+                cell.textField?.stringValue = c.status
+                cell.textField?.textColor   = .secondaryLabelColor
+            case "cocpu":
+                if let s = containerStats[c.name], c.isRunning {
+                    cell.textField?.stringValue = String(format: "%.1f%%", s.cpuPercent)
+                    cell.textField?.textColor   = s.cpuPercent > 80 ? .systemOrange : .secondaryLabelColor
+                } else {
+                    cell.textField?.stringValue = c.isRunning ? "…" : "–"
+                    cell.textField?.textColor   = .tertiaryLabelColor
+                }
+            case "coram":
+                if let s = containerStats[c.name], c.isRunning {
+                    cell.textField?.stringValue = "\(s.memUsedFormatted) (\(String(format: "%.0f%%", s.memUsedPercent)))"
+                    cell.textField?.textColor   = .secondaryLabelColor
+                } else {
+                    cell.textField?.stringValue = c.isRunning ? "…" : "–"
+                    cell.textField?.textColor   = .tertiaryLabelColor
+                }
+            default: break
+            }
+            return cell
+        }
+
+        return nil
+    }
+
+    func outlineView(_ outlineView: NSOutlineView, rowViewForItem item: Any) -> NSTableRowView? {
+        guard let c = item as? DockerContainer else { return nil }
+        let rv = ContainerRowView()
+        rv.isRunning = c.isRunning
+        return rv
+    }
+
+    func outlineViewSelectionDidChange(_ notification: Notification) {
+        updateComposeButtons()
+    }
+}
+
 // MARK: - NSTableViewDataSource / Delegate
 
 extension ContainersPanelViewController: NSTableViewDataSource, NSTableViewDelegate {
@@ -1147,7 +1367,6 @@ extension ContainersPanelViewController: NSTableViewDataSource, NSTableViewDeleg
         if tableView == imagesTableView   { return allImages.count }
         if tableView == volumesTableView  { return allVolumes.count }
         if tableView == networksTableView { return allNetworks.count }
-        if tableView == composeTableView  { return composeProjects.count }
         return 0
     }
 
@@ -1218,39 +1437,6 @@ extension ContainersPanelViewController: NSTableViewDataSource, NSTableViewDeleg
             case "netname":   cell.textField?.stringValue = net.name;   cell.textField?.textColor = .labelColor
             case "netdriver": cell.textField?.stringValue = net.driver; cell.textField?.textColor = .secondaryLabelColor
             case "netscope":  cell.textField?.stringValue = net.scope;  cell.textField?.textColor = .secondaryLabelColor
-            default: break
-            }
-            return cell
-        }
-
-        // Compose table
-        if tableView == composeTableView {
-            let cid = NSUserInterfaceItemIdentifier("comp-\(id)")
-            let cell = (tableView.makeView(withIdentifier: cid, owner: self) as? NSTableCellView)
-                ?? makeTextCell(id: cid)
-            let projects = composeProjects
-            guard row < projects.count else { return cell }
-            let proj = projects[row]
-            let running = proj.containers.filter { $0.isRunning }.count
-            let total   = proj.containers.count
-            switch id {
-            case "cproject":
-                cell.textField?.stringValue = proj.name
-                cell.textField?.textColor   = .labelColor
-            case "ccount":
-                cell.textField?.stringValue = "\(total)"
-                cell.textField?.textColor   = .secondaryLabelColor
-            case "cstatus":
-                if running == total {
-                    cell.textField?.stringValue = "✅ All running"
-                    cell.textField?.textColor   = .systemGreen
-                } else if running == 0 {
-                    cell.textField?.stringValue = "⛔ Stopped"
-                    cell.textField?.textColor   = .tertiaryLabelColor
-                } else {
-                    cell.textField?.stringValue = "⚠ \(running)/\(total) running"
-                    cell.textField?.textColor   = .systemOrange
-                }
             default: break
             }
             return cell
@@ -1358,6 +1544,17 @@ extension ContainersPanelViewController: NSTableViewDataSource, NSTableViewDeleg
 
 extension ContainersPanelViewController: NSMenuDelegate {
     func menuWillOpen(_ menu: NSMenu) {
+        if menu == composeContextMenu {
+            let row = composeOutlineView.clickedRow
+            guard row >= 0,
+                  let c = composeOutlineView.item(atRow: row) as? DockerContainer else {
+                menu.removeAllItems(); return
+            }
+            composeContextTarget = c
+            rebuildComposeContextMenu(for: c)
+            return
+        }
+        // containers tab context menu
         let row = tableView.clickedRow
         guard row >= 0 && row < displayed.count else {
             menu.removeAllItems()
