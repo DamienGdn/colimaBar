@@ -19,6 +19,8 @@ final class StatusBarController: NSObject {
     private var breathTimer: Timer?
     private var breathStart = Date()
     private var currentBadgeColor: NSColor?
+    private lazy var baseGlyph: NSImage = NSImage(named: "colimabar")
+        ?? NSImage(systemSymbolName: "shippingbox.fill", accessibilityDescription: "Colima Desktop")!
     private var consecutiveHighCPU = 0
     private var consecutiveHighRAM = 0
 
@@ -53,14 +55,24 @@ final class StatusBarController: NSObject {
         popover.delegate = self
     }
 
+    private func clearIconClickFlag() {
+        closedByIconClick = false
+        if let monitor = clickMonitor { NSEvent.removeMonitor(monitor); clickMonitor = nil }
+    }
+
     @objc private func togglePopover() {
+        // A fresh mouse-down on the icon that did not close a popover invalidates a stranded flag.
+        if closedByIconClick, NSApp.currentEvent?.type != .leftMouseUp, NSApp.currentEvent?.type != .rightMouseUp {
+            clearIconClickFlag()
+        }
         if popover.isShown {
+            clearIconClickFlag()
             popover.performClose(nil)
             return
         }
         // The transient popover closes on mouse-down outside it, before this action runs.
         if closedByIconClick {
-            closedByIconClick = false
+            clearIconClickFlag()
             return
         }
         guard let button = statusItem.button else { return }
@@ -111,7 +123,7 @@ final class StatusBarController: NSObject {
         case .stopped, .unknown: badgeColor = nil   // dimmed glyph, no badge
         }
         currentBadgeColor = badgeColor
-        if case .transitioning = colima {
+        if case .transitioning = colima, !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
             startBreathing()
         } else {
             stopBreathing()
@@ -153,14 +165,16 @@ final class StatusBarController: NSObject {
         statusItem.button?.image = colimaIcon(badgeColor: currentBadgeColor, glyphAlpha: alpha)
     }
 
-    deinit { breathTimer?.invalidate() }
+    deinit {
+        breathTimer?.invalidate()
+        if let monitor = clickMonitor { NSEvent.removeMonitor(monitor) }
+    }
 
     /// Menu bar icon: the llama glyph tinted with the menu bar label color,
     /// dimmed when Colima is stopped, with a colored status badge otherwise.
     /// `glyphAlpha` (breathing) scales the glyph only; the badge stays fully opaque.
     private func colimaIcon(badgeColor: NSColor?, glyphAlpha: Double = 1.0) -> NSImage {
-        let base = NSImage(named: "colimabar")
-            ?? NSImage(systemSymbolName: "shippingbox.fill", accessibilityDescription: "Colima Desktop")!
+        let base = baseGlyph
         let size = NSSize(width: 22, height: 22)
         let result = NSImage(size: size, flipped: false) { rect in
             // Glyph in labelColor (adapts to dark/light menu bar)
@@ -206,8 +220,7 @@ final class StatusBarController: NSObject {
 
 extension StatusBarController: NSPopoverDelegate {
     func popoverWillClose(_ notification: Notification) {
-        closedByIconClick = false
-        if let monitor = clickMonitor { NSEvent.removeMonitor(monitor); clickMonitor = nil }
+        clearIconClickFlag()
         guard let event = NSApp.currentEvent,
               event.type == .leftMouseDown || event.type == .rightMouseDown,
               let button = statusItem.button, event.window === button.window,
@@ -215,10 +228,7 @@ extension StatusBarController: NSPopoverDelegate {
         closedByIconClick = true
         // The click's action fires during this mouse-up's dispatch; clear the flag right after.
         clickMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseUp, .rightMouseUp]) { [weak self] event in
-            DispatchQueue.main.async {
-                self?.closedByIconClick = false
-                if let monitor = self?.clickMonitor { NSEvent.removeMonitor(monitor); self?.clickMonitor = nil }
-            }
+            DispatchQueue.main.async { self?.clearIconClickFlag() }
             return event
         }
     }

@@ -88,11 +88,11 @@ final class AppStore: ObservableObject {
         }
     }
 
-    func refresh() {
+    func refresh(completion: (() -> Void)? = nil) {
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self else { return }
             let state = self.manager.fetchStateSync()
-            DispatchQueue.main.async { self.apply(state) }
+            DispatchQueue.main.async { self.apply(state); completion?() }
         }
     }
 
@@ -320,14 +320,14 @@ final class AppStore: ObservableObject {
 
     // MARK: - Portainer / upgrade
 
-    /// `completion(true)` on success (state refresh already requested), `false` on failure.
+    /// `completion(true)` on success, called once the refreshed state has been applied (so views
+    /// can clear their busy flag knowing `portainerExists` is current); `false` on failure.
     func installPortainer(completion: ((Bool) -> Void)? = nil) {
         manager.installPortainer { [weak self] result in
             switch result {
             case .success:
                 self?.openPortainer()
-                self?.refresh()
-                completion?(true)
+                if let self { self.refresh { completion?(true) } } else { completion?(true) }
             case .failure(let error):
                 self?.fail(error)
                 completion?(false)

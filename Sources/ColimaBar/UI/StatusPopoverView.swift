@@ -79,8 +79,9 @@ struct StatusPopoverView: View {
                                   action: L.t("Installer Portainer", "Install Portainer"),
                                   busy: installingPortainer) {
                         installingPortainer = true
-                        // On success stay busy until the refreshed state hides the banner.
-                        store.installPortainer { ok in if !ok { installingPortainer = false } }
+                        // Completion fires after the refreshed state is applied: the banner is gone
+                        // if the install was detected, otherwise the user can retry.
+                        store.installPortainer { _ in installingPortainer = false }
                     }
                 }
                 if let version = store.updateVersion {

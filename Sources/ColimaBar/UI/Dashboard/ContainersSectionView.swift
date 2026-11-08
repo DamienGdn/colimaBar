@@ -9,6 +9,7 @@ struct ContainersSectionView: View {
     @FocusState private var searchFocused: Bool
     @State private var confirmPrune = false
     @State private var busy = false
+    @State private var installingPortainer = false
 
     var body: some View {
         VStack(spacing: 12) {
@@ -63,12 +64,12 @@ struct ContainersSectionView: View {
                 }
             } else {
                 Button {
-                    busy = true
-                    store.installPortainer { ok in if !ok { busy = false } }
+                    installingPortainer = true
+                    store.installPortainer { _ in installingPortainer = false }
                 } label: {
                     Label(L.t("Installer Portainer", "Install Portainer"), systemImage: "arrow.down.circle")
                 }
-                .disabled(busy)
+                .disabled(installingPortainer)
             }
             Button { confirmPrune = true } label: {
                 Label(L.t("Vider Docker…", "Prune Docker…"), systemImage: "trash")
