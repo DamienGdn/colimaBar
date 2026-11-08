@@ -16,6 +16,9 @@
 ### Project
 
 - Vector sources for all artwork in `design/` + `make icons` (`scripts/render-icons.mjs`)
+- Dedicated simplified icon artwork for 16 / 32 px so the icon stays legible in Finder lists and menus
+- Complete `.icns` (all 10 renditions, 16 → 1024 px); `scripts/pack-icns.py` packs it when `iconutil` is unavailable
+- GitHub social preview image (`docs/social-preview.png`)
 - `Info.plist`: version synced (was stuck at 1.0), display name, copyright, app category
 - CI: run the custom test runner (`swift run ColimaBarTests`) — `swift test` found no XCTest target
 - `make test` target; `.superpowers/` scratch files removed from git

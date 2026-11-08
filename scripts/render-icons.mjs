@@ -5,6 +5,7 @@
 //
 // Outputs:
 //   build/AppIcon.iconset/*.png   -> pack with `iconutil -c icns` (see `make icons`)
+//                                    16/32 px use design/AppIcon-small.svg
 //   Resources/colimabar.png       (22x22 menu bar template glyph)
 //   Resources/colimabar@2x.png    (44x44)
 //   docs/icon.png                 (256x256, README)
@@ -14,7 +15,9 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const appSvg  = readFileSync(join(root, 'design/AppIcon.svg'), 'utf8');
+const appSvg   = readFileSync(join(root, 'design/AppIcon.svg'), 'utf8');
+// Simplified artwork (no strip / ribs / shadows) stays legible at 16-32 px.
+const smallSvg = readFileSync(join(root, 'design/AppIcon-small.svg'), 'utf8');
 const menuSvg = readFileSync(join(root, 'design/MenuBarIcon.svg'), 'utf8');
 
 const iconset = join(root, 'build/AppIcon.iconset');
@@ -34,8 +37,9 @@ async function render(svg, size, out) {
 }
 
 for (const base of [16, 32, 128, 256, 512]) {
-  await render(appSvg, base,     join(iconset, `icon_${base}x${base}.png`));
-  await render(appSvg, base * 2, join(iconset, `icon_${base}x${base}@2x.png`));
+  const svgFor = (px) => (px <= 32 ? smallSvg : appSvg);
+  await render(svgFor(base),     base,     join(iconset, `icon_${base}x${base}.png`));
+  await render(svgFor(base * 2), base * 2, join(iconset, `icon_${base}x${base}@2x.png`));
 }
 await render(appSvg, 256, join(root, 'docs/icon.png'));
 await render(menuSvg, 22, join(root, 'Resources/colimabar.png'));

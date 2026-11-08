@@ -187,9 +187,14 @@ All artwork is vector and lives in [`design/`](design):
 
 | File | Used for |
 |---|---|
-| `design/AppIcon.svg` | App icon → `Resources/AppIcon.icns`, `docs/icon.png` |
+| `design/AppIcon.svg` | App icon (64 px and up) → `Resources/AppIcon.icns`, `docs/icon.png` |
+| `design/AppIcon-small.svg` | Simplified app icon for 16 / 32 px renditions |
 | `design/MenuBarIcon.svg` | Menu bar template glyph → `Resources/colimabar.png` / `@2x` |
-| `design/banner.html` | README banner → `docs/banner.png` |
+| `design/banner.html` | README banner → `docs/banner.png` (1280×420 @2x) |
+| `design/social-preview.html` | GitHub social preview → `docs/social-preview.png` (1280×640) |
+
+`make icons` renders the SVGs (`scripts/render-icons.mjs`) and packs the `.icns` with `iconutil`, or with `scripts/pack-icns.py` when `iconutil` is not available.
+To use the social preview: GitHub → **Settings → General → Social preview** → upload `docs/social-preview.png`.
 
 Palette: indigo `#3B4CCA` · navy `#121A4A` · teal `#12A894` · orange `#F26B1D`.
 
@@ -220,7 +225,7 @@ Sources/
 Tests/ColimaBarTests/              # Custom test runner
 Resources/                         # Info.plist, AppIcon.icns, menu bar glyph
 design/                            # Vector sources for all artwork
-scripts/render-icons.mjs           # SVG → PNG renderer
+scripts/                          # render-icons.mjs (SVG → PNG), pack-icns.py
 ```
 
 ## Credits

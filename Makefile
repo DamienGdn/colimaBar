@@ -30,9 +30,14 @@ test:
 
 # Regenerate app + menu bar icons from the SVG sources in design/.
 # Requires Node.js with Playwright (npx playwright install chromium).
+# Packs with Apple's iconutil when available, else scripts/pack-icns.py.
 icons:
 	node scripts/render-icons.mjs
-	iconutil -c icns build/AppIcon.iconset -o Resources/AppIcon.icns
+	@if command -v iconutil >/dev/null 2>&1; then \
+		iconutil -c icns build/AppIcon.iconset -o Resources/AppIcon.icns; \
+	else \
+		python3 scripts/pack-icns.py; \
+	fi
 	@echo "Icons updated."
 
 clean:
