@@ -52,12 +52,17 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # `bundles` must succeed. `optional` bundles need extra tools that
+          # Tauri downloads from GitHub releases (AppImage runtime, WiX), so a
+          # download outage there must not block the required packages.
           - name: Linux
             os: ubuntu-22.04
-            bundles: deb,rpm,appimage
+            bundles: deb,rpm
+            optional: appimage
           - name: Windows
             os: windows-latest
-            bundles: nsis,msi
+            bundles: nsis
+            optional: msi
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -84,8 +89,9 @@ jobs:
       - name: Install Tauri CLI
         run: npm ci
 
-      # Bundling downloads tools (NSIS, AppImage runtime) from GitHub releases,
-      # which occasionally answer 5xx. Retry; the compiled binary is reused.
+      # Bundling downloads tools (NSIS, AppImage runtime, WiX) from GitHub
+      # releases, which occasionally answer 5xx. Retry; the compiled binary is
+      # reused, so a retry only redoes the packaging.
       - name: Build
         shell: bash
         run: |
@@ -94,6 +100,19 @@ jobs:
             echo "::warning::tauri build attempt $attempt failed, retrying in 30 s"
             sleep 30
           done
+          exit 1
+
+      - name: Build optional bundles (${{ matrix.optional }})
+        if: matrix.optional != ''
+        continue-on-error: true
+        shell: bash
+        run: |
+          for attempt in 1 2 3; do
+            npx tauri build --bundles ${{ matrix.optional }} && exit 0
+            echo "::warning::optional ${{ matrix.optional }} bundle attempt $attempt failed, retrying in 30 s"
+            sleep 30
+          done
+          echo "::warning::${{ matrix.optional }} bundle skipped (bundler tool download unavailable)"
           exit 1
 
       - uses: actions/upload-artifact@v4
