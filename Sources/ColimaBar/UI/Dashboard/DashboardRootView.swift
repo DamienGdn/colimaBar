@@ -88,12 +88,25 @@ struct DashboardRootView: View {
             }
             .padding(.horizontal, 16).padding(.vertical, 10)
             Divider()
-            HostedVC(make: {
-                let vc = store.modules.composeEditor
-                vc.showProject(named: stack)
-                return vc
-            })
-            .id(stack)
+            HostedVC(make: { store.modules.composeEditor })
+                .onAppear { positionEditor(on: stack) }
+                .onChange(of: stack) { positionEditor(on: $0) }
+        }
+    }
+
+    /// Opens `stack` in the editor and keeps the route (header) on the project really loaded.
+    /// Deferred out of the view update: `showProject` may run a modal alert for unsaved edits.
+    private func positionEditor(on stack: String) {
+        DispatchQueue.main.async { [weak store] in
+            guard let store else { return }
+            let editor = store.modules.composeEditor
+            editor.onLoadedProjectChange = { [weak store] name in
+                guard let store, let name, case .composeEditor(let shown) = store.route, shown != name else { return }
+                store.route = .composeEditor(stack: name)
+            }
+            if !editor.showProject(named: stack), let loaded = editor.loadedProjectName, loaded != stack {
+                store.route = .composeEditor(stack: loaded)
+            }
         }
     }
 

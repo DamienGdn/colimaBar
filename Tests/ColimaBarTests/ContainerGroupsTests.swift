@@ -87,3 +87,24 @@ func test_filteredGroups_matchesComposeService() {
                             labels: "com.docker.compose.project=p,com.docker.compose.service=api")
     checkEqual(ContainerGrouping.filtered([c], stats: [:], query: "api").stacks.count, 1, "service match")
 }
+
+func test_stackNamed_unfilteredMembers() {
+    let cs = [ctr("web", .running, project: "shop"), ctr("db", .exited, project: "shop"), ctr("solo", .running)]
+    let s = ContainerGrouping.stack(named: "shop", in: cs, stats: [:])
+    checkEqual(s?.containers.map { $0.name }, ["db", "web"], "all members")
+    check(ContainerGrouping.stack(named: "nope", in: cs, stats: [:]) == nil, "missing stack")
+}
+
+func test_validSelection_dropsMissing() {
+    let cs = [ctr("web", .running, project: "shop"), ctr("solo", .running)]
+    let kept = ContainerGrouping.validSelection(container: "solo", stack: "shop", in: cs)
+    checkEqual(kept.container, "solo", "container kept")
+    checkEqual(kept.stack, "shop", "stack kept")
+    let gone = ContainerGrouping.validSelection(container: "old", stack: "blog", in: cs)
+    check(gone.container == nil && gone.stack == nil, "both dropped")
+}
+
+func test_logTargets_runningFirstThenByName() {
+    let cs = [ctr("b", .exited), ctr("z", .running), ctr("a", .exited), ctr("c", .running)]
+    checkEqual(LogTargets.order(cs).map { $0.name }, ["c", "z", "a", "b"], "order")
+}

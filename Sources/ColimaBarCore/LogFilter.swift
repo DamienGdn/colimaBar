@@ -41,3 +41,13 @@ public struct LogFilter {
         return .normal
     }
 }
+
+public enum LogTargets {
+    /// Containers whose logs can be shown: running ones first, then stopped ones, each by name.
+    /// `docker logs` works on exited containers too.
+    public static func order(_ containers: [DockerContainer]) -> [DockerContainer] {
+        containers.sorted { a, b in
+            a.isRunning != b.isRunning ? a.isRunning : a.name < b.name
+        }
+    }
+}

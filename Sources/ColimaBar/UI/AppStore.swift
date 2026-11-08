@@ -41,6 +41,11 @@ final class AppStore: ObservableObject {
         ContainerGrouping.filtered(state.containers, stats: state.containerStats, query: search)
     }
 
+    /// Unfiltered stack (all its members, whatever the search).
+    func stack(named name: String) -> StackGroup? {
+        ContainerGrouping.stack(named: name, in: state.containers, stats: state.containerStats)
+    }
+
     // MARK: - State
 
     func apply(_ state: ColimaAppState) {
@@ -49,6 +54,13 @@ final class AppStore: ObservableObject {
         if !statsMissing { history.record(state.containerStats) }
         if case .transitioning(let label) = state.colima { transition = label } else { transition = nil }
         self.state = state
+        if state.colima == .running {
+            // Drop selections whose container / stack is gone (removed, compose down…).
+            let valid = ContainerGrouping.validSelection(container: selectedContainer, stack: selectedStack,
+                                                         in: state.containers)
+            if valid.container != selectedContainer { selectedContainer = valid.container }
+            if valid.stack != selectedStack { selectedStack = valid.stack }
+        }
         modules.updateContainers(state.containers)
     }
 
@@ -117,8 +129,8 @@ final class AppStore: ObservableObject {
     }
 
     func remove(_ name: String, force: Bool) {
+        // Selection is cleared by `apply` once the container is really gone.
         containerAction { self.manager.removeContainer(name, force: force, completion: $0) }
-        if selectedContainer == name { selectedContainer = nil }
     }
 
     func startAll(_ names: [String]) { names.forEach(start) }

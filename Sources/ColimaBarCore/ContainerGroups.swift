@@ -65,4 +65,18 @@ public enum ContainerGrouping {
         }
         return (stacks, grouped.standalone.filter(matches))
     }
+
+    /// Unfiltered stack by name.
+    public static func stack(named name: String, in containers: [DockerContainer],
+                             stats: [String: ResourceUsage]) -> StackGroup? {
+        group(containers.filter { $0.composeProject == name }, stats: stats).stacks.first
+    }
+
+    /// Drops selections whose container / stack no longer exists.
+    public static func validSelection(container: String?, stack: String?,
+                                      in containers: [DockerContainer]) -> (container: String?, stack: String?) {
+        let c = container.flatMap { name in containers.contains { $0.name == name } ? name : nil }
+        let s = stack.flatMap { name in containers.contains { $0.composeProject == name } ? name : nil }
+        return (c, s)
+    }
 }

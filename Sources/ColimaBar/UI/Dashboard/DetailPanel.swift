@@ -12,7 +12,7 @@ struct DetailPanel: View {
                let c = store.state.containers.first(where: { $0.name == name }) {
                 ContainerDetailView(container: c).id(c.name)
             } else if mode == .grouped, let name = store.selectedStack,
-                      let stack = store.groups.stacks.first(where: { $0.name == name }) {
+                      let stack = store.stack(named: name) {
                 StackDetailView(stack: stack)
             } else {
                 VStack(spacing: 10) {
@@ -103,9 +103,9 @@ struct StackDetailView: View {
                     }
                     HStack(spacing: 8) {
                         DetailUI.action(L.t("Tout démarrer", "Start all"), "play.fill",
-                                        disabled: stack.status == .allRunning) { StackActions.startAll(stack, store) }
+                                        disabled: stack.status == .allRunning) { StackActions.startAll(stack.name, store) }
                         DetailUI.action(L.t("Tout arrêter", "Stop all"), "stop.fill",
-                                        disabled: stack.status == .stopped) { StackActions.stopAll(stack, store) }
+                                        disabled: stack.status == .stopped) { StackActions.stopAll(stack.name, store) }
                     }
                 }
                 .controlSize(.small)

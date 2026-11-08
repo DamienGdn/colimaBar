@@ -89,14 +89,17 @@ struct ContainersSectionView: View {
 }
 
 /// Stack-wide actions shared by the table context menu and the stack detail.
+/// Always act on every member of the stack, even those hidden by the search.
 enum StackActions {
     static func hasComposeFile(_ stack: StackGroup) -> Bool {
         stack.containers.contains { DockerComposeService.findComposeFile(for: $0) != nil }
     }
-    static func startAll(_ stack: StackGroup, _ store: AppStore) {
+    static func startAll(_ name: String, _ store: AppStore) {
+        guard let stack = store.stack(named: name) else { return }
         store.startAll(stack.containers.filter { !$0.isRunning }.map(\.name))
     }
-    static func stopAll(_ stack: StackGroup, _ store: AppStore) {
+    static func stopAll(_ name: String, _ store: AppStore) {
+        guard let stack = store.stack(named: name) else { return }
         store.stopAll(stack.containers.filter(\.isRunning).map(\.name))
     }
 }

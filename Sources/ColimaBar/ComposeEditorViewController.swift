@@ -14,13 +14,25 @@ final class ComposeEditorViewController: NSViewController {
     private let emptyLabel = NSTextField(labelWithString: "Aucun projet Docker Compose détecté")
 
     // State
+    /// Projects found in the last poll; nil until the first one (so an empty list still shows the empty state).
+    private var available: [ComposeProject]?
+    /// Picker entries (available projects, plus the loaded one while it has unsaved edits).
     private var projects: [ComposeProject] = []
     private var originalContent = ""
     /// Project whose file is currently in the text view.
-    private var loadedProject: ComposeProject?
+    private var loadedProject: ComposeProject? {
+        didSet { if loadedProject != oldValue { onLoadedProjectChange?(loadedProject?.name) } }
+    }
+    private var saving = false {
+        didSet { saveRestartButton.isEnabled = !saving && loadedProject != nil }
+    }
     private var isDirty = false {
         didSet { updateDirtyIndicator() }
     }
+
+    /// Called when the project shown in the editor changes (picker, poll, showProject).
+    var onLoadedProjectChange: ((String?) -> Void)?
+    var loadedProjectName: String? { loadedProject?.name }
 
     private var selectedProject: ComposeProject? {
         let idx = projectPicker.indexOfSelectedItem
@@ -37,42 +49,28 @@ final class ComposeEditorViewController: NSViewController {
 
     // MARK: - Public
 
-    /// Called on every poll: only rebuilds when the project list changed, and keeps the
-    /// selected project (and unsaved edits) when it is still there.
+    /// Called on every poll: only acts when the project list changed. Keeps the loaded project,
+    /// and keeps unsaved edits even if their project disappears (see `ComposeEditorPlan`).
     func updateContainers(_ containers: [DockerContainer]) {
         if !isViewLoaded { _ = view }
-        let newProjects = DockerComposeService.listProjects(from: containers)
-            .sorted { $0.name < $1.name }
-        guard newProjects != projects else { return }
-        let previous = loadedProject
-        projects = newProjects
-        projectPicker.removeAllItems()
-        if projects.isEmpty {
-            loadedProject = nil
-            emptyLabel.isHidden = false
-            scrollView.isHidden = true
-            saveRestartButton.isEnabled = false
-            dirtyIndicator.isHidden = true
-            return
-        }
-        emptyLabel.isHidden = true
-        scrollView.isHidden = false
-        projectPicker.addItems(withTitles: projects.map { $0.name })
-        if let previous, let idx = projects.firstIndex(of: previous) {
-            projectPicker.selectItem(at: idx)
-        } else {
-            loadSelectedProject()
-        }
+        let newAvailable = DockerComposeService.listProjects(from: containers).sorted { $0.name < $1.name }
+        guard newAvailable != available else { return }
+        available = newAvailable
+        reconcile()
     }
 
-    /// Selects a project by name (asks before dropping unsaved edits).
-    func showProject(named name: String) {
+    /// Selects a project by name, asking before dropping unsaved edits.
+    /// Returns whether that project is now the one in the editor.
+    @discardableResult
+    func showProject(named name: String) -> Bool {
         if !isViewLoaded { _ = view }
-        guard let idx = projects.firstIndex(where: { $0.name == name }),
-              idx != projectPicker.indexOfSelectedItem else { return }
-        if isDirty && !confirmDiscard() { return }
+        if loadedProject?.name == name { return true }
+        guard let idx = projects.firstIndex(where: { $0.name == name }) else { return false }
+        if isDirty && !confirmDiscard() { return false }
         projectPicker.selectItem(at: idx)
         loadSelectedProject()
+        reconcile()
+        return true
     }
 
     // MARK: - Private
@@ -141,6 +139,29 @@ final class ComposeEditorViewController: NSViewController {
         ])
     }
 
+    private func reconcile() {
+        let plan = ComposeEditorPlan.reconcile(available: available ?? [], loaded: loadedProject, dirty: isDirty)
+        projects = plan.entries
+        projectPicker.removeAllItems()
+        projectPicker.addItems(withTitles: projects.map { p in
+            (available ?? []).contains(p) ? p.name : "\(p.name) (\(L.t("détaché", "detached")))"
+        })
+        guard let selection = plan.selection, let idx = projects.firstIndex(of: selection) else {
+            loadedProject = nil
+            emptyLabel.isHidden = false
+            scrollView.isHidden = true
+            saveRestartButton.isEnabled = false
+            dirtyIndicator.isHidden = true
+            return
+        }
+        emptyLabel.isHidden = true
+        scrollView.isHidden = false
+        saveRestartButton.isEnabled = !saving
+        updateDirtyIndicator()
+        projectPicker.selectItem(at: idx)
+        if plan.reload { loadSelectedProject() }
+    }
+
     private func loadSelectedProject() {
         guard let project = selectedProject else { return }
         loadedProject = project
@@ -173,29 +194,32 @@ final class ComposeEditorViewController: NSViewController {
             return
         }
         loadSelectedProject()
+        reconcile()   // drops a detached entry whose edits were just discarded
     }
 
     @objc private func saveAndRestart() {
-        guard let project = selectedProject else { return }
+        guard let project = loadedProject else { return }
         let alert = NSAlert()
         alert.messageText = "Save & Restart"
         alert.informativeText = "Enregistrer le fichier et relancer '\(project.name)' avec docker compose up -d --build ?"
         alert.addButton(withTitle: "Confirmer")
         alert.addButton(withTitle: "Annuler")
         guard alert.runModal() == .alertFirstButtonReturn else { return }
-        saveRestartButton.isEnabled = false
+        saving = true
         let content = textView.string
         DispatchQueue.global().async {
             do {
                 try self.composeService.saveAndRestart(content: content, project: project)
                 DispatchQueue.main.async {
+                    self.saving = false
+                    // The user may have switched project or kept typing meanwhile.
+                    guard self.loadedProject == project else { return }
                     self.originalContent = content
-                    self.isDirty = false
-                    self.saveRestartButton.isEnabled = true
+                    self.isDirty = self.textView.string != content
                 }
             } catch {
                 DispatchQueue.main.async {
-                    self.saveRestartButton.isEnabled = true
+                    self.saving = false
                     let err = NSAlert()
                     err.messageText = "Erreur"
                     err.informativeText = error.localizedDescription

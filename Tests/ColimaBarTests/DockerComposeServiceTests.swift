@@ -49,3 +49,41 @@ func test_composeProjects_groupsContainersByProject() {
     check(projects.contains { $0.name == "proj1" }, "listProjects: proj1 present")
     check(projects.contains { $0.name == "proj2" }, "listProjects: proj2 present")
 }
+
+private func proj(_ name: String) -> ComposeProject {
+    ComposeProject(name: name, workingDir: "/w/\(name)", configFile: URL(fileURLWithPath: "/w/\(name)/compose.yml"))
+}
+
+func test_composeEditorPlan_firstLoadPicksFirst() {
+    let r = ComposeEditorPlan.reconcile(available: [proj("shop"), proj("blog")], loaded: nil, dirty: false)
+    checkEqual(r.entries.map { $0.name }, ["blog", "shop"], "sorted")
+    checkEqual(r.selection?.name, "blog", "first")
+    check(r.reload, "load file")
+}
+
+func test_composeEditorPlan_emptyList() {
+    let r = ComposeEditorPlan.reconcile(available: [], loaded: nil, dirty: false)
+    check(r.entries.isEmpty && r.selection == nil && !r.reload, "empty state")
+}
+
+func test_composeEditorPlan_keepsLoadedProject() {
+    let r = ComposeEditorPlan.reconcile(available: [proj("blog"), proj("shop")], loaded: proj("shop"), dirty: false)
+    checkEqual(r.selection?.name, "shop", "kept")
+    check(!r.reload, "no reload")
+}
+
+func test_composeEditorPlan_dirtyLoadedDisappears_keptDetached() {
+    let r = ComposeEditorPlan.reconcile(available: [proj("blog")], loaded: proj("shop"), dirty: true)
+    checkEqual(r.entries.map { $0.name }, ["blog", "shop"], "detached entry kept")
+    checkEqual(r.selection?.name, "shop", "still selected")
+    check(!r.reload, "edits kept")
+    let empty = ComposeEditorPlan.reconcile(available: [], loaded: proj("shop"), dirty: true)
+    checkEqual(empty.selection?.name, "shop", "kept even when list empties")
+}
+
+func test_composeEditorPlan_cleanLoadedDisappears_switches() {
+    let r = ComposeEditorPlan.reconcile(available: [proj("blog")], loaded: proj("shop"), dirty: false)
+    checkEqual(r.entries.map { $0.name }, ["blog"], "dropped")
+    checkEqual(r.selection?.name, "blog", "first")
+    check(r.reload, "reload")
+}

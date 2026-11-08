@@ -61,7 +61,7 @@ struct ContainerDetailView: View {
                 DetailUI.action(L.t("Redémarrer", "Restart"), "arrow.clockwise", disabled: !c.isRunning) { store.restart(c.name) }
             }
             GridRow {
-                DetailUI.action("Logs", "text.alignleft", disabled: !c.isRunning) { store.showLogs(for: c.name) }
+                DetailUI.action("Logs", "text.alignleft") { store.showLogs(for: c.name) }
                 DetailUI.action("Shell", "terminal", disabled: !c.isRunning) { store.openShell(c.name) }
                 DetailUI.action("Env", "list.bullet.rectangle") { showEnv = true }
             }

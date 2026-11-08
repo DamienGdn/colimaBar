@@ -24,9 +24,11 @@ struct ContainersTableView: View {
 
     // MARK: Rows
 
+    /// While searching every group is forced open (matches must stay visible).
+    private var searching: Bool { !store.search.trimmingCharacters(in: .whitespaces).isEmpty }
+
     private var rows: [Row] {
         let groups = store.groups
-        let searching = !store.search.trimmingCharacters(in: .whitespaces).isEmpty
         func isOpen(_ id: String) -> Bool { searching || !collapsed.contains(id) }
         func child(_ c: DockerContainer) -> Row { Row(id: "c:" + c.name, kind: .container(c, child: true)) }
 
@@ -103,7 +105,16 @@ struct ContainersTableView: View {
             } primaryAction: { ids in
                 if let id = ids.first, !id.hasPrefix("c:") { toggle(id) }
             }
+            .onAppear { expandParent(of: store.selectedContainer) }
+            .onChange(of: store.selectedContainer) { expandParent(of: $0) }
         }
+    }
+
+    /// Makes a selected member visible (selection from the stack detail, the popover…).
+    private func expandParent(of name: String?) {
+        guard mode == .grouped, let name,
+              let c = store.state.containers.first(where: { $0.name == name }) else { return }
+        collapsed.remove(c.composeProject.map { "s:" + $0 } ?? Self.standaloneID)
     }
 
     private var emptyState: some View {
@@ -125,6 +136,7 @@ struct ContainersTableView: View {
     }
 
     private func toggle(_ id: String) {
+        guard !searching else { return }
         if collapsed.contains(id) { collapsed.remove(id) } else { collapsed.insert(id) }
     }
 
@@ -148,7 +160,7 @@ struct ContainersTableView: View {
     }
 
     private func groupName(_ id: String, _ title: String) -> some View {
-        let open = !store.search.trimmingCharacters(in: .whitespaces).isEmpty || !collapsed.contains(id)
+        let open = searching || !collapsed.contains(id)
         return HStack(spacing: 6) {
             Button { toggle(id) } label: {
                 Image(systemName: "chevron.right")
@@ -159,6 +171,9 @@ struct ContainersTableView: View {
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .disabled(searching)
+            .opacity(searching ? 0.35 : 1)
+            .help(searching ? L.t("Tout est déplié pendant une recherche", "Everything is expanded while searching") : "")
             .accessibilityLabel(open ? L.t("Replier", "Collapse") : L.t("Déplier", "Expand"))
             Text(title).fontWeight(.semibold).foregroundColor(.tkText).lineLimit(1)
         }
@@ -231,15 +246,15 @@ struct ContainersTableView: View {
     // MARK: Context menu
 
     @ViewBuilder private func menu(for id: String) -> some View {
-        if id.hasPrefix("s:"), let stack = store.groups.stacks.first(where: { "s:" + $0.name == id }) {
+        if id.hasPrefix("s:"), let stack = store.stack(named: String(id.dropFirst(2))) {
             Button(L.t("Éditer le compose", "Edit compose file")) {
                 store.route = .composeEditor(stack: stack.name)
             }
             .disabled(!StackActions.hasComposeFile(stack))
             Divider()
-            Button(L.t("Tout démarrer", "Start all")) { StackActions.startAll(stack, store) }
+            Button(L.t("Tout démarrer", "Start all")) { StackActions.startAll(stack.name, store) }
                 .disabled(stack.status == .allRunning)
-            Button(L.t("Tout arrêter", "Stop all")) { StackActions.stopAll(stack, store) }
+            Button(L.t("Tout arrêter", "Stop all")) { StackActions.stopAll(stack.name, store) }
                 .disabled(stack.status == .stopped)
         } else if id.hasPrefix("c:"),
                   let c = store.state.containers.first(where: { "c:" + $0.name == id }) {
@@ -247,7 +262,7 @@ struct ContainersTableView: View {
             Button(L.t("Arrêter", "Stop")) { store.stop(c.name) }.disabled(!c.isRunning)
             Button(L.t("Redémarrer", "Restart")) { store.restart(c.name) }.disabled(!c.isRunning)
             Divider()
-            Button("Logs") { store.showLogs(for: c.name) }.disabled(!c.isRunning)
+            Button("Logs") { store.showLogs(for: c.name) }
             Button("Shell") { store.openShell(c.name) }.disabled(!c.isRunning)
         }
     }

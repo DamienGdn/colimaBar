@@ -15,6 +15,8 @@ final class EnhancedLogsViewController: NSViewController {
     private var containers: [DockerContainer] = []
     private var allLines: [String] = []
     private var streamProcess: Process?
+    /// Whether the streamed container was running when the stream started.
+    private var streamedRunning: Bool?
     private let dockerPath = "/opt/homebrew/bin/docker"
 
     private var currentContainer: DockerContainer? {
@@ -32,17 +34,24 @@ final class EnhancedLogsViewController: NSViewController {
 
     // MARK: - Public
 
+    /// Lists every container (running first): `docker logs` also works on exited ones.
     func updateContainers(_ all: [DockerContainer]) {
         if !isViewLoaded { _ = view }
-        let running = all.filter { $0.isRunning }
-        containers = running
-        let selected = currentContainer?.name
+        let targets = LogTargets.order(all)
+        let selected = currentContainer
+        containers = targets
         containerPicker.removeAllItems()
-        containerPicker.addItems(withTitles: running.isEmpty ? ["—"] : running.map { $0.name })
-        if let sel = selected, let idx = running.firstIndex(where: { $0.name == sel }) {
+        containerPicker.addItems(withTitles: targets.isEmpty ? ["—"] : targets.map { c in
+            c.isRunning ? c.name : "\(c.name) (\(L.t("arrêté", "stopped")))"
+        })
+        if let sel = selected, let idx = targets.firstIndex(where: { $0.name == sel.name }) {
             containerPicker.selectItem(at: idx)
-        } else if !running.isEmpty {
+            // A stream started on a stopped container has ended: follow again once it runs.
+            if targets[idx].isRunning && streamedRunning == false { startStreaming() }
+        } else if !targets.isEmpty {
             startStreaming()
+        } else {
+            stopStreaming()
         }
     }
 
@@ -121,7 +130,9 @@ final class EnhancedLogsViewController: NSViewController {
         stopStreaming()
         allLines = []
         textView.textStorage?.setAttributedString(NSAttributedString(string: ""))
+        streamedRunning = nil
         guard let container = currentContainer else { return }
+        streamedRunning = container.isRunning
 
         let proc = Process()
         proc.executableURL = URL(fileURLWithPath: dockerPath)
