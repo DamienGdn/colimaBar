@@ -1,8 +1,11 @@
 import AppKit
+import Combine
 import ColimaBarCore
 
 final class StatusBarController {
     private let manager: ColimaManager
+    private let store: AppStore
+    private var cancellables = Set<AnyCancellable>()
     private var statusItem: NSStatusItem!
     private var menu: NSMenu!
     private var lastState: ColimaAppState = .unknown
@@ -32,18 +35,28 @@ final class StatusBarController {
     private var settingsPanelVC: SettingsPanelViewController!
     private var previousContainerStates: [String: DockerContainer.ContainerState] = [:]
     private let logsWindowController = LogsWindowController()
-    var onStateUpdate: ((ColimaAppState) -> Void)?
     private var consecutiveHighCPU:   Int      = 0
     private var consecutiveHighRAM:   Int      = 0
     private var lastKnownInstances:   [String] = ["default"]
     private var instanceSubmenuItem:  NSMenuItem?
 
-    init(manager: ColimaManager) {
-        self.manager = manager
+    init(store: AppStore) {
+        self.store = store
+        self.manager = store.manager
         setupStatusItem()
-        manager.onStateChange = { [weak self] state in
-            self?.update(state: state)
-        }
+        store.$state
+            .dropFirst()
+            .sink { [weak self] state in self?.update(state: state) }
+            .store(in: &cancellables)
+        store.$lastError
+            .sink { [weak self] message in
+                if let message { self?.showLastError(message) } else { self?.clearLastError() }
+            }
+            .store(in: &cancellables)
+        store.$updateVersion
+            .compactMap { $0 }
+            .sink { [weak self] version in self?.showUpdateAvailable(version: version) }
+            .store(in: &cancellables)
     }
 
     // MARK: - Setup
@@ -330,8 +343,6 @@ final class StatusBarController {
                 self?.rebuildInstanceSubmenu()
             }
         }
-
-        onStateUpdate?(state)
     }
 
     private func updateIcon(colima: ColimaRunningState) {
@@ -487,49 +498,9 @@ final class StatusBarController {
         (NSApp.delegate as? AppDelegate)?.dashboardWindowController.showDashboard()
     }
 
-    @objc private func startColima() {
-        (NSApp.delegate as? AppDelegate)?.showSuccess(L.t("Démarrage de Colima…", "Starting Colima…"))
-        manager.startColima(onTransition: { [weak self] state in
-            self?.update(state: state)
-        }, completion: { [weak self] result in
-            guard let self else { return }
-            let appDelegate = NSApp.delegate as? AppDelegate
-            switch result {
-            case .success(let state):
-                self.update(state: state)
-                self.clearLastError()
-                let duration = Int(state.startDuration ?? 0)
-                let running = state.containers.filter { $0.isRunning }.count
-                let msg = L.t(
-                    "Colima démarré en \(duration)s — \(running) container(s) actif(s)",
-                    "Colima started in \(duration)s — \(running) container(s) running"
-                )
-                appDelegate?.showSuccess(msg)
-            case .failure(let error):
-                appDelegate?.showError(error.localizedDescription)
-                self.showLastError(error.localizedDescription)
-                self.update(state: .unknown)
-            }
-        })
-    }
+    @objc private func startColima() { store.startColima() }
 
-    @objc private func stopColima() {
-        (NSApp.delegate as? AppDelegate)?.showSuccess(L.t("Arrêt de Colima…", "Stopping Colima…"))
-        manager.stopColima(onTransition: { [weak self] state in
-            self?.update(state: state)
-        }, completion: { [weak self] result in
-            let appDelegate = NSApp.delegate as? AppDelegate
-            switch result {
-            case .success(let state):
-                self?.update(state: state)
-                self?.clearLastError()
-                appDelegate?.showSuccess(L.t("Colima arrêté", "Colima stopped"))
-            case .failure(let error):
-                appDelegate?.showError(error.localizedDescription)
-                self?.showLastError(error.localizedDescription)
-            }
-        })
-    }
+    @objc private func stopColima() { store.stopColima() }
 
     @objc private func showAbout() {
         NSApp.activate(ignoringOtherApps: true)
@@ -544,21 +515,11 @@ final class StatusBarController {
         ])
     }
 
-    @objc private func openPortainer() {
-        NSWorkspace.shared.open(URL(string: "https://localhost:9443")!)
-    }
+    @objc private func openPortainer() { store.openPortainer() }
 
     @objc private func installPortainer() {
         installPortainerItem.isEnabled = false
-        manager.installPortainer { [weak self] result in
-            self?.installPortainerItem.isEnabled = true
-            switch result {
-            case .success: NSWorkspace.shared.open(URL(string: "https://localhost:9443")!)
-            case .failure(let error):
-                (NSApp.delegate as? AppDelegate)?.showError(error.localizedDescription)
-                self?.showLastError(error.localizedDescription)
-            }
-        }
+        store.installPortainer { [weak self] in self?.installPortainerItem.isEnabled = true }
     }
 
     @objc private func openSettingsPanel() {
@@ -584,16 +545,7 @@ final class StatusBarController {
         alert.addButton(withTitle: L.t("Annuler", "Cancel"))
         guard alert.runModal() == .alertFirstButtonReturn else { return }
         pruneItem.isEnabled = false
-        manager.pruneDocker { [weak self] result in
-            self?.pruneItem.isEnabled = true
-            let appDelegate = NSApp.delegate as? AppDelegate
-            switch result {
-            case .success:
-                appDelegate?.showSuccess(L.t("Docker purgé avec succès", "Docker pruned successfully"))
-            case .failure(let error):
-                appDelegate?.showError(error.localizedDescription)
-            }
-        }
+        store.pruneDocker { [weak self] in self?.pruneItem.isEnabled = true }
     }
 
     private func detectContainerCrashes(prev: [DockerContainer], new: [DockerContainer]) {
@@ -612,17 +564,17 @@ final class StatusBarController {
 
     private func restartWithNewConfig() {
         manager.stopColima(onTransition: { [weak self] state in
-            self?.update(state: state)
+            self?.store.apply(state)
         }, completion: { [weak self] result in
             guard let self else { return }
             switch result {
             case .success:
                 self.manager.startColima(onTransition: { [weak self] state in
-                    self?.update(state: state)
+                    self?.store.apply(state)
                 }, completion: { [weak self] result in
                     switch result {
                     case .success(let state):
-                        self?.update(state: state)
+                        self?.store.apply(state)
                     case .failure(let error):
                         (NSApp.delegate as? AppDelegate)?.showError(error.localizedDescription)
                     }
@@ -668,11 +620,5 @@ final class StatusBarController {
         updateItem.isHidden = false
     }
 
-    @objc private func upgradeColima() {
-        let script = "tell application \"Terminal\" to do script \"brew upgrade colima\""
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
-        process.arguments = ["-e", script]
-        try? process.run()
-    }
+    @objc private func upgradeColima() { store.upgradeColima() }
 }

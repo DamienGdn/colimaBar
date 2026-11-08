@@ -1,13 +1,15 @@
 // Sources/ColimaBar/DashboardWindowController.swift
 import AppKit
+import Combine
 import ColimaBarCore
 
 final class DashboardWindowController: NSWindowController {
     private let dashboardVC: DashboardViewController
+    private var cancellables = Set<AnyCancellable>()
 
-    init(manager: ColimaManager) {
+    init(store: AppStore) {
         dashboardVC = DashboardViewController()
-        dashboardVC.manager = manager
+        dashboardVC.manager = store.manager
 
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 900, height: 600),
@@ -20,6 +22,10 @@ final class DashboardWindowController: NSWindowController {
         window.contentViewController = dashboardVC
         super.init(window: window)
         window.delegate = self
+        // Legacy AppKit dashboard keeps receiving state until the SwiftUI one replaces it.
+        store.$state
+            .sink { [weak self] state in self?.dashboardVC.update(state: state) }
+            .store(in: &cancellables)
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) not supported") }
@@ -28,10 +34,6 @@ final class DashboardWindowController: NSWindowController {
         NSApp.activate(ignoringOtherApps: true)
         showWindow(nil)
         window?.makeKeyAndOrderFront(nil)
-    }
-
-    func update(state: ColimaAppState) {
-        dashboardVC.update(state: state)
     }
 }
 
