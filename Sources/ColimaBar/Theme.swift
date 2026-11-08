@@ -1,4 +1,5 @@
 import AppKit
+import SwiftUI
 
 /// Shared visual helpers: SF Symbols, status dots and brand colors.
 enum Theme {
@@ -8,6 +9,51 @@ enum Theme {
         static let indigo = NSColor(srgbRed: 0.231, green: 0.298, blue: 0.792, alpha: 1)  // #3B4CCA
         static let teal   = NSColor(srgbRed: 0.071, green: 0.659, blue: 0.580, alpha: 1)  // #12A894
         static let orange = NSColor(srgbRed: 0.949, green: 0.420, blue: 0.114, alpha: 1)  // #F26B1D
+        static let navy   = NSColor(srgbRed: 0.071, green: 0.102, blue: 0.290, alpha: 1)  // #121A4A
+    }
+
+    /// Header band gradient (indigo to navy).
+    static let headerGradient = LinearGradient(
+        colors: [Color(nsColor: Brand.indigo), Color(nsColor: Brand.navy)],
+        startPoint: .leading, endPoint: .trailing)
+
+    /// Wordmark gradient (teal to orange).
+    static let wordmarkGradient = LinearGradient(
+        colors: [Color(nsColor: Brand.teal), Color(nsColor: Brand.orange)],
+        startPoint: .leading, endPoint: .trailing)
+
+    static let radius: CGFloat = 10
+
+    /// Design tokens, mirroring tauri/src/styles.css (light in :root, dark in prefers-color-scheme: dark).
+    enum Tokens {
+        private static func hex(_ v: UInt32, _ a: CGFloat = 1) -> NSColor {
+            NSColor(srgbRed: CGFloat((v >> 16) & 0xFF) / 255,
+                    green: CGFloat((v >> 8) & 0xFF) / 255,
+                    blue: CGFloat(v & 0xFF) / 255, alpha: a)
+        }
+        private static func dynamic(_ light: NSColor, _ dark: NSColor) -> NSColor {
+            NSColor(name: nil) { appearance in
+                appearance.bestMatch(from: [.aqua, .darkAqua]) == .aqua ? light : dark
+            }
+        }
+
+        static let bg          = dynamic(hex(0xF5F6FA), hex(0x0E1230))
+        static let surface     = dynamic(hex(0xFFFFFF), hex(0x161B3F))
+        static let surface2    = dynamic(hex(0xF0F2F8), hex(0x1C2250))
+        static let border      = dynamic(hex(0xE1E4EE), hex(0x2A3166))
+        static let text        = dynamic(hex(0x161A36), hex(0xEEF0FB))
+        static let text2       = dynamic(hex(0x5B6188), hex(0xA9AFD6))
+        static let text3       = dynamic(hex(0x9298B8), hex(0x6E75A3))
+        static let accent      = dynamic(hex(0x3B4CCA), hex(0x7C8CFF))
+        static let accentSoft  = dynamic(hex(0x3B4CCA, 0.10), hex(0x7C8CFF, 0.16))
+        static let rowHover    = dynamic(hex(0xF4F5FB), hex(0x1B2150))
+        static let rowSelected = dynamic(hex(0x3B4CCA, 0.10), hex(0x7C8CFF, 0.18))
+        static let green       = dynamic(hex(0x1FA855), hex(0x34D17A))
+        static let greenSoft   = dynamic(hex(0x1FA855, 0.12), hex(0x34D17A, 0.14))
+        static let amber       = dynamic(hex(0xE08600), hex(0xFFB340))
+        static let amberSoft   = dynamic(hex(0xE08600, 0.14), hex(0xFFB340, 0.14))
+        static let red         = dynamic(hex(0xD93A3A), hex(0xFF6B6B))
+        static let redSoft     = dynamic(hex(0xD93A3A, 0.12), hex(0xFF6B6B, 0.14))
     }
 
     /// Semantic status colors used across the menu, icon and tables.
@@ -51,4 +97,24 @@ extension NSMenuItem {
         image = Theme.symbol(name, title)
         return self
     }
+}
+
+extension Color {
+    static let tkBg          = Color(nsColor: Theme.Tokens.bg)
+    static let tkSurface     = Color(nsColor: Theme.Tokens.surface)
+    static let tkSurface2    = Color(nsColor: Theme.Tokens.surface2)
+    static let tkBorder      = Color(nsColor: Theme.Tokens.border)
+    static let tkText        = Color(nsColor: Theme.Tokens.text)
+    static let tkText2       = Color(nsColor: Theme.Tokens.text2)
+    static let tkText3       = Color(nsColor: Theme.Tokens.text3)
+    static let tkAccent      = Color(nsColor: Theme.Tokens.accent)
+    static let tkAccentSoft  = Color(nsColor: Theme.Tokens.accentSoft)
+    static let tkRowHover    = Color(nsColor: Theme.Tokens.rowHover)
+    static let tkRowSelected = Color(nsColor: Theme.Tokens.rowSelected)
+    static let tkGreen       = Color(nsColor: Theme.Tokens.green)
+    static let tkGreenSoft   = Color(nsColor: Theme.Tokens.greenSoft)
+    static let tkAmber       = Color(nsColor: Theme.Tokens.amber)
+    static let tkAmberSoft   = Color(nsColor: Theme.Tokens.amberSoft)
+    static let tkRed         = Color(nsColor: Theme.Tokens.red)
+    static let tkRedSoft     = Color(nsColor: Theme.Tokens.redSoft)
 }
