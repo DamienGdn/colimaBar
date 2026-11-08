@@ -34,6 +34,8 @@ final class AppStore: ObservableObject {
     /// Sections whose list has been fetched at least once since Colima came up.
     @Published private(set) var loadedLists: Set<DashboardSection> = []
     @Published private(set) var loadingLists: Set<DashboardSection> = []
+    private var reloadPending: Set<DashboardSection> = []
+    private var listEpoch = 0
 
     init(manager: ColimaManager) {
         self.manager = manager
@@ -60,7 +62,11 @@ final class AppStore: ObservableObject {
         if !statsMissing { history.record(state.containerStats) }
         if case .transitioning(let label) = state.colima { transition = label } else { transition = nil }
         self.state = state
-        if state.colima != .running && !loadedLists.isEmpty { loadedLists = [] }
+        if state.colima != .running && (!loadedLists.isEmpty || !images.isEmpty || !volumes.isEmpty || !networks.isEmpty) {
+            listEpoch += 1
+            loadedLists = []
+            images = []; volumes = []; networks = []
+        }
         if state.colima == .running {
             // Drop selections whose container / stack is gone (removed, compose down…).
             let valid = ContainerGrouping.validSelection(container: selectedContainer, stack: selectedStack,
@@ -193,26 +199,25 @@ final class AppStore: ObservableObject {
         }
     }
 
-    func pruneImages() {
-        manager.pruneImages { [weak self] result in
-            switch result {
-            case .success: self?.refresh()
-            case .failure(let error): self?.fail(error)
-            }
-        }
-    }
-
     // MARK: - Images / volumes / networks
 
-    private func load<T>(_ section: DashboardSection, _ fetch: (@escaping ([T]) -> Void) -> Void,
+    /// A reload requested while a fetch is in flight is replayed once it ends (never dropped).
+    private func load<T>(_ section: DashboardSection, _ fetch: @escaping (@escaping ([T]) -> Void) -> Void,
                          assign: @escaping (AppStore, [T]) -> Void) {
-        guard !loadingLists.contains(section) else { return }
+        if loadingLists.contains(section) { reloadPending.insert(section); return }
         loadingLists.insert(section)
+        let epoch = listEpoch
         fetch { [weak self] items in
             guard let self else { return }
-            assign(self, items)
             self.loadingLists.remove(section)
-            self.loadedLists.insert(section)
+            // Colima stopped (or restarted) meanwhile: the answer is stale.
+            if epoch == self.listEpoch, self.state.colima == .running {
+                assign(self, items)
+                self.loadedLists.insert(section)
+            }
+            if self.reloadPending.remove(section) != nil, self.state.colima == .running {
+                self.load(section, fetch, assign: assign)
+            }
         }
     }
 
@@ -253,7 +258,7 @@ final class AppStore: ObservableObject {
         }
     }
 
-    func pruneImagesList() { prune(manager.pruneImages) { $0.loadImages() } }
+    func pruneImages() { prune(manager.pruneImages) { $0.loadImages() } }
     func pruneVolumes() { prune(manager.pruneVolumes) { $0.loadVolumes() } }
     func pruneNetworks() { prune(manager.pruneNetworks) { $0.loadNetworks() } }
 

@@ -6,8 +6,11 @@ struct ImagesView: View {
     @State private var selection: String?
     @State private var pullName = ""
     @State private var pulling = false
-    @State private var pendingDelete: DockerImage?
-    @State private var confirmPrune = false
+    private enum Pending: Identifiable {
+        case delete(DockerImage), prune
+        var id: String { if case .delete(let i) = self { return "d:" + ImagesView.rowID(i) } else { return "prune" } }
+    }
+    @State private var pending: Pending?
 
     private static func rowID(_ i: DockerImage) -> String { "\(i.repository):\(i.tag):\(i.id)" }
     private struct Row: Identifiable { let image: DockerImage; var id: String { ImagesView.rowID(image) } }
@@ -29,22 +32,27 @@ struct ImagesView: View {
             }
         }
         .onAppear { store.loadIfNeeded(.images) }
-        .confirmationDialog(L.t("Supprimer l'image ?", "Delete image?"), isPresented: Binding(
-            get: { pendingDelete != nil }, set: { if !$0 { pendingDelete = nil } }), presenting: pendingDelete) { image in
-            Button(L.t("Supprimer", "Delete"), role: .destructive) { store.deleteImage(Self.reference(image)) }
-        } message: { image in
-            Text(Self.reference(image))
-        }
-        .confirmationDialog(L.t("Supprimer les images orphelines ?", "Prune images?"), isPresented: $confirmPrune) {
-            Button(L.t("Supprimer", "Prune"), role: .destructive) { store.pruneImagesList() }
-        } message: {
-            Text(L.t("Supprime les images sans tag (dangling). Irréversible.", "Removes dangling images. Irreversible."))
+        .confirmationDialog(dialogTitle, isPresented: Binding(
+            get: { pending != nil }, set: { if !$0 { pending = nil } }), presenting: pending) { item in
+            Button(L.t("Supprimer", "Delete"), role: .destructive) {
+                switch item {
+                case .delete(let image): store.deleteImage(image.id)
+                case .prune: store.pruneImages()
+                }
+            }
+        } message: { item in
+            switch item {
+            case .delete(let image):
+                Text("\(image.repository):\(image.tag) (\(image.id))")
+            case .prune:
+                Text(L.t("Supprime les images sans tag (dangling). Irréversible.", "Removes dangling images. Irreversible."))
+            }
         }
     }
 
-    /// Tagged images are removed by name (a shared ID would otherwise refuse), untagged ones by ID.
-    private static func reference(_ i: DockerImage) -> String {
-        i.repository == "<none>" || i.tag == "<none>" ? i.id : "\(i.repository):\(i.tag)"
+    private var dialogTitle: String {
+        if case .prune = pending { return L.t("Supprimer les images orphelines ?", "Prune images?") }
+        return L.t("Supprimer l'image ?", "Delete image?")
     }
 
     private var toolbar: some View {
@@ -56,9 +64,9 @@ struct ImagesView: View {
                 .disabled(pulling || pullName.trimmingCharacters(in: .whitespaces).isEmpty)
             if pulling { ProgressView().controlSize(.small) }
             Spacer(minLength: 8)
-            Button { pendingDelete = selected } label: { Label(L.t("Supprimer", "Delete"), systemImage: "trash") }
+            Button { if let selected { pending = .delete(selected) } } label: { Label(L.t("Supprimer", "Delete"), systemImage: "trash") }
                 .disabled(selected == nil)
-            Button { confirmPrune = true } label: {
+            Button { pending = .prune } label: {
                 Label(L.t("Purger les images…", "Prune images…"), systemImage: "sparkles")
             }
         }
@@ -73,11 +81,11 @@ struct ImagesView: View {
 
     private var table: some View {
         Table(rows, selection: $selection) {
-            TableColumn("Repository") { Text($0.image.repository).foregroundColor(.tkText) }.width(min: 140, ideal: 240)
+            TableColumn(L.t("Dépôt", "Repository")) { Text($0.image.repository).foregroundColor(.tkText) }.width(min: 140, ideal: 240)
             TableColumn("Tag") { Text($0.image.tag).foregroundColor(.tkText2) }.width(min: 70, ideal: 110)
             TableColumn("ID") { Text($0.image.id).font(ResourceFont.mono).foregroundColor(.tkText2) }.width(min: 90, ideal: 130)
-            TableColumn("Size") { Text($0.image.size).font(ResourceFont.mono).foregroundColor(.tkText) }.width(min: 60, ideal: 90)
-            TableColumn("Created") { Text($0.image.created).foregroundColor(.tkText2) }.width(min: 90, ideal: 130)
+            TableColumn(L.t("Taille", "Size")) { Text($0.image.size).font(ResourceFont.mono).foregroundColor(.tkText) }.width(min: 60, ideal: 90)
+            TableColumn(L.t("Créée", "Created")) { Text($0.image.created).foregroundColor(.tkText2) }.width(min: 90, ideal: 130)
         }
         .tableStyle(.inset(alternatesRowBackgrounds: false))
         .scrollContentBackground(.hidden)
@@ -87,9 +95,9 @@ struct ImagesView: View {
                     NSPasteboard.general.clearContents(); NSPasteboard.general.setString(image.id, forType: .string)
                 }
                 Divider()
-                Button(L.t("Supprimer…", "Delete…"), role: .destructive) { pendingDelete = image }
+                Button(L.t("Supprimer…", "Delete…"), role: .destructive) { pending = .delete(image) }
             }
         }
-        .onDeleteCommand { pendingDelete = selected }
+        .onDeleteCommand { if let selected { pending = .delete(selected) } }
     }
 }

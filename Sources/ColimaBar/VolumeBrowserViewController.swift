@@ -54,7 +54,7 @@ final class VolumeBrowserViewController: NSViewController {
     /// Positions the browser on `volume`: picks a running container among `names` that mounts it and opens the
     /// mount point. Returns false when none of them is running (nothing changes).
     @discardableResult
-    func showVolume(_ volume: String, usedBy names: [String]) -> Bool {
+    func showVolume(_ volume: String, usedBy names: [String], dockerPath: String) -> Bool {
         guard let idx = containers.firstIndex(where: { names.contains($0.name) }) else { return false }
         let container = containers[idx]
         containerPicker.selectItem(at: idx)
@@ -62,9 +62,17 @@ final class VolumeBrowserViewController: NSViewController {
         reload()
         DispatchQueue.global().async {
             let format = "{{range .Mounts}}{{if eq .Name \"\(volume)\"}}{{.Destination}}{{end}}{{end}}"
-            let out = ProcessShellRunner().run("/opt/homebrew/bin/docker", args: ["inspect", "-f", format, container.name])
+            let out = ProcessShellRunner().run(dockerPath, args: ["inspect", "-f", format, container.name])
             let dest = out.output.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard out.exitCode == 0, dest.hasPrefix("/"), dest != "/" else { return }
+            guard out.exitCode == 0 else {
+                let reason = out.error.trimmingCharacters(in: .whitespacesAndNewlines)
+                DispatchQueue.main.async {
+                    self.pathLabel.stringValue = L.t("Montage du volume introuvable : ", "Volume mount not found: ")
+                        + (reason.isEmpty ? "docker inspect" : reason)
+                }
+                return
+            }
+            guard dest.hasPrefix("/"), dest != "/" else { return }
             DispatchQueue.main.async {
                 guard self.currentContainer?.name == container.name else { return }
                 self.pathStack = ["/", dest]

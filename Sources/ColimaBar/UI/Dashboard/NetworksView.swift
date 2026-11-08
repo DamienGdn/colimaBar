@@ -22,8 +22,8 @@ struct NetworksView: View {
             } else {
                 Table(rows, selection: $selection) {
                     TableColumn(L.t("Nom", "Name")) { Text($0.network.name).foregroundColor(.tkText) }.width(min: 140, ideal: 240)
-                    TableColumn("Driver") { Text($0.network.driver).foregroundColor(.tkText2) }.width(min: 70, ideal: 110)
-                    TableColumn("Scope") { Text($0.network.scope).foregroundColor(.tkText2) }.width(min: 60, ideal: 90)
+                    TableColumn(L.t("Pilote", "Driver")) { Text($0.network.driver).foregroundColor(.tkText2) }.width(min: 70, ideal: 110)
+                    TableColumn(L.t("Portée", "Scope")) { Text($0.network.scope).foregroundColor(.tkText2) }.width(min: 60, ideal: 90)
                     TableColumn("ID") { Text($0.network.id).font(ResourceFont.mono).foregroundColor(.tkText2) }.width(min: 90, ideal: 130)
                 }
                 .tableStyle(.inset(alternatesRowBackgrounds: false))

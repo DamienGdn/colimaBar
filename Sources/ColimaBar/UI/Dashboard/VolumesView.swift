@@ -27,7 +27,7 @@ struct VolumesView: View {
                 Table(rows, selection: $selection) {
                     TableColumn(L.t("Nom", "Name")) { Text($0.volume.name).foregroundColor(.tkText).lineLimit(1) }
                         .width(min: 160, ideal: 280)
-                    TableColumn("Driver") { Text($0.volume.driver).foregroundColor(.tkText2) }.width(min: 60, ideal: 90)
+                    TableColumn(L.t("Pilote", "Driver")) { Text($0.volume.driver).foregroundColor(.tkText2) }.width(min: 60, ideal: 90)
                     TableColumn(L.t("Taille", "Size")) { Text($0.volume.size).font(ResourceFont.mono).foregroundColor(.tkText) }
                         .width(min: 60, ideal: 90)
                     TableColumn(L.t("Utilisé par", "Used by")) {
@@ -103,9 +103,9 @@ struct VolumeBrowserRoute: View {
 
     /// Deferred out of the view update (the browser reloads and runs docker commands).
     private func position() {
-        let volume = volume, users = runningUsers
+        let volume = volume, users = runningUsers, docker = store.manager.dockerPath
         DispatchQueue.main.async { [weak store] in
-            store?.modules.volumeBrowser.showVolume(volume, usedBy: users)
+            store?.modules.volumeBrowser.showVolume(volume, usedBy: users, dockerPath: docker)
         }
     }
 }

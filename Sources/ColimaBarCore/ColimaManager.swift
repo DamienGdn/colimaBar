@@ -3,7 +3,7 @@ import Foundation
 public final class ColimaManager {
     private let shell: ShellRunner
     private let colimaPath: String
-    private let dockerPath: String
+    public let dockerPath: String
 
     public var onStateChange: ((ColimaAppState) -> Void)?
     private var timer: DispatchSourceTimer?
