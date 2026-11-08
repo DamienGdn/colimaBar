@@ -96,7 +96,7 @@ struct PopoverButtonStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .foregroundColor(primary ? .white : .tkText)
+            .foregroundColor(primary ? .tkOnBrand : .tkText)
             .padding(.horizontal, 10)
             .frame(height: 26)
             .background(RoundedRectangle(cornerRadius: 6).fill(primary ? Color.tkAccent : Color.tkSurface2))

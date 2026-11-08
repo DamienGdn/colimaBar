@@ -45,7 +45,7 @@ struct StatusPopoverView: View {
                 StatePill(state: state.colima)
             }
             Text(state.profileSummary)
-                .font(.system(size: 11)).foregroundColor(.white.opacity(0.7))
+                .font(.system(size: 11)).foregroundColor(.tkOnBrand.opacity(0.7))
                 .lineLimit(1).truncationMode(.tail)
             gauges
         }

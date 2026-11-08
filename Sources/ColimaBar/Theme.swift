@@ -74,6 +74,8 @@ extension Color {
     static let tkSurface     = Color(nsColor: Theme.Tokens.surface)
     static let tkSurface2    = Color(nsColor: Theme.Tokens.surface2)
     static let tkBorder      = Color(nsColor: Theme.Tokens.border)
+    /// Text/overlay color on the always-indigo brand band and primary filled buttons.
+    static let tkOnBrand     = Color.white
     static let tkText        = Color(nsColor: Theme.Tokens.text)
     static let tkText2       = Color(nsColor: Theme.Tokens.text2)
     static let tkText3       = Color(nsColor: Theme.Tokens.text3)

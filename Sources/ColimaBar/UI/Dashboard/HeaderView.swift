@@ -16,7 +16,7 @@ struct HeaderView: View {
             VStack(alignment: .leading, spacing: 2) {
                 BrandWordmark(size: 20)
                 Text(state.profileSummary)
-                    .font(.system(size: 11.5)).foregroundColor(.white.opacity(0.7)).lineLimit(1)
+                    .font(.system(size: 11.5)).foregroundColor(.tkOnBrand.opacity(0.7)).lineLimit(1)
             }
             Spacer(minLength: 12)
             StatePill(state: state.colima)
@@ -35,10 +35,10 @@ struct HeaderView: View {
                       systemImage: isRunning ? "stop.fill" : "play.fill")
                     .font(.system(size: 12, weight: .semibold))
                     .padding(.horizontal, 10).padding(.vertical, 5)
-                    .background(Capsule().fill(Color.white.opacity(0.14)))
-                    .overlay(Capsule().stroke(Color.white.opacity(0.2), lineWidth: 1))
+                    .background(Capsule().fill(Color.tkOnBrand.opacity(0.14)))
+                    .overlay(Capsule().stroke(Color.tkOnBrand.opacity(0.2), lineWidth: 1))
             }
-            .buttonStyle(.plain).foregroundColor(.white)
+            .buttonStyle(.plain).foregroundColor(.tkOnBrand)
             .disabled(isTransitioning)
             .opacity(isTransitioning ? 0.5 : 1)
 
@@ -51,9 +51,9 @@ struct HeaderView: View {
                 Button(L.t("Quitter", "Quit")) { NSApp.terminate(nil) }
             } label: {
                 Image(systemName: "gearshape.fill")
-                    .foregroundColor(.white)
+                    .foregroundColor(.tkOnBrand)
                     .frame(width: 28, height: 28)
-                    .background(Circle().fill(Color.white.opacity(0.12)))
+                    .background(Circle().fill(Color.tkOnBrand.opacity(0.12)))
             }
             .menuStyle(.borderlessButton).menuIndicator(.hidden)
             .fixedSize()
@@ -68,9 +68,9 @@ struct HeaderView: View {
     private func iconButton(_ symbol: String, _ label: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: symbol)
-                .foregroundColor(.white)
+                .foregroundColor(.tkOnBrand)
                 .frame(width: 28, height: 28)
-                .background(Circle().fill(Color.white.opacity(0.12)))
+                .background(Circle().fill(Color.tkOnBrand.opacity(0.12)))
         }
         .buttonStyle(.plain)
         .accessibilityLabel(label).help(label)

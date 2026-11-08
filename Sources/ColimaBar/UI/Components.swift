@@ -7,7 +7,7 @@ struct BrandWordmark: View {
     let size: CGFloat
     var body: some View {
         HStack(spacing: 0) {
-            Text("Colima").foregroundColor(.white)
+            Text("Colima").foregroundColor(.tkOnBrand)
             Text("Bar").foregroundStyle(Theme.wordmarkGradient)
         }
         .font(.system(size: size, weight: .bold))
@@ -62,10 +62,10 @@ struct StatePill: View {
             StatusDot(color: dot)
             Text("Colima · \(label)").font(.system(size: 12, weight: .semibold)).lineLimit(1)
         }
-        .foregroundColor(.white)
+        .foregroundColor(.tkOnBrand)
         .padding(.horizontal, 11).padding(.vertical, 5)
-        .background(Capsule().fill(Color.white.opacity(0.12)))
-        .overlay(Capsule().stroke(Color.white.opacity(0.16), lineWidth: 1))
+        .background(Capsule().fill(Color.tkOnBrand.opacity(0.12)))
+        .overlay(Capsule().stroke(Color.tkOnBrand.opacity(0.16), lineWidth: 1))
     }
 }
 
@@ -140,14 +140,14 @@ struct HeaderGauge: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
             HStack {
-                Text(label).foregroundColor(.white.opacity(0.7))
+                Text(label).foregroundColor(.tkOnBrand.opacity(0.7))
                 Spacer(minLength: 6)
-                Text(value).foregroundColor(.white).monospacedDigit()
+                Text(value).foregroundColor(.tkOnBrand).monospacedDigit()
             }
             .font(.system(size: 11, weight: .semibold))
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
-                    Capsule().fill(Color.white.opacity(0.18))
+                    Capsule().fill(Color.tkOnBrand.opacity(0.18))
                     Capsule().fill(Theme.wordmarkGradient)
                         .frame(width: geo.size.width * CGFloat(min(max(fraction, 0), 1)))
                 }
