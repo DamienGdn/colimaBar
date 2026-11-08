@@ -173,7 +173,7 @@ final class ComposeEditorViewController: NSViewController {
         originalContent = content
         textView.string = content
         isDirty = false
-        saveRestartButton.isEnabled = true
+        saveRestartButton.isEnabled = !saving && loadedProject != nil
     }
 
     private func updateDirtyIndicator() {

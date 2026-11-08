@@ -55,3 +55,17 @@ func test_inspectContainer_returnsJSON() {
     if case .success(let out)? = result { checkEqual(out, json, "inspect JSON") }
     else { check(false, "inspect succeeds") }
 }
+
+func test_statePolicy_inFlight_ignoresPolledRunning() {
+    check(!StateUpdatePolicy.shouldApplyPolled(operationInFlight: true, colima: .running), "running ignored")
+    check(!StateUpdatePolicy.shouldApplyPolled(operationInFlight: true, colima: .stopped), "stopped ignored")
+}
+
+func test_statePolicy_inFlight_appliesTransitioning() {
+    check(StateUpdatePolicy.shouldApplyPolled(operationInFlight: true, colima: .transitioning("Starting")), "transitioning applied")
+}
+
+func test_statePolicy_notInFlight_appliesPolled() {
+    check(StateUpdatePolicy.shouldApplyPolled(operationInFlight: false, colima: .running), "running applied")
+    check(StateUpdatePolicy.shouldApplyPolled(operationInFlight: false, colima: .stopped), "stopped applied")
+}

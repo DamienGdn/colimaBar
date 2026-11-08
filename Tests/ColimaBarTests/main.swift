@@ -104,6 +104,9 @@ test_composeEditorPlan_emptyList()
 test_composeEditorPlan_keepsLoadedProject()
 test_composeEditorPlan_dirtyLoadedDisappears_keptDetached()
 test_composeEditorPlan_cleanLoadedDisappears_switches()
+test_statePolicy_inFlight_ignoresPolledRunning()
+test_statePolicy_inFlight_appliesTransitioning()
+test_statePolicy_notInFlight_appliesPolled()
 
 print("\n\(_passed) passed, \(_failed) failed")
 if _failed > 0 {

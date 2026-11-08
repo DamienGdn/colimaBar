@@ -17,7 +17,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         dashboardWindowController = DashboardWindowController(store: store)
         manager.startPolling()
         if ColimaConfig.autoStartOnLaunch {
-            store.startColima()
+            store.startColima(silent: true)
         }
         manager.checkForColimaUpdate { [weak self] newVersion in
             guard let version = newVersion else { return }

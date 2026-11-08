@@ -40,7 +40,7 @@ final class AppStore: ObservableObject {
     init(manager: ColimaManager) {
         self.manager = manager
         manager.onStateChange = { [weak self] state in
-            self?.apply(state)
+            self?.applyPolled(state)
         }
     }
 
@@ -56,6 +56,16 @@ final class AppStore: ObservableObject {
 
     // MARK: - State
 
+    /// True while Start/Stop/Restart runs: polls must not overwrite its `.transitioning` state.
+    private var operationInFlight = false
+
+    /// State from a poll or a refresh: ignored mid-operation unless it is itself transitioning.
+    func applyPolled(_ state: ColimaAppState) {
+        guard StateUpdatePolicy.shouldApplyPolled(operationInFlight: operationInFlight, colima: state.colima) else { return }
+        apply(state)
+    }
+
+    /// Unconditional apply (used by the operations' own transition / completion paths).
     func apply(_ state: ColimaAppState) {
         // A transient stats failure must not wipe the graphs while containers are running.
         let statsMissing = state.containerStats.isEmpty && state.containers.contains { $0.isRunning }
@@ -92,18 +102,20 @@ final class AppStore: ObservableObject {
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self else { return }
             let state = self.manager.fetchStateSync()
-            DispatchQueue.main.async { self.apply(state); completion?() }
+            DispatchQueue.main.async { self.applyPolled(state); completion?() }
         }
     }
 
     // MARK: - Colima
 
-    func startColima() {
-        delegate?.showSuccess(L.t("Démarrage de Colima…", "Starting Colima…"))
+    func startColima(silent: Bool = false) {
+        if !silent { delegate?.showSuccess(L.t("Démarrage de Colima…", "Starting Colima…")) }
+        operationInFlight = true
         manager.startColima(onTransition: { [weak self] state in
             self?.apply(state)
         }, completion: { [weak self] result in
             guard let self else { return }
+            self.operationInFlight = false
             switch result {
             case .success(let state):
                 self.apply(state)
@@ -122,10 +134,12 @@ final class AppStore: ObservableObject {
 
     func stopColima() {
         delegate?.showSuccess(L.t("Arrêt de Colima…", "Stopping Colima…"))
+        operationInFlight = true
         manager.stopColima(onTransition: { [weak self] state in
             self?.apply(state)
         }, completion: { [weak self] result in
             guard let self else { return }
+            self.operationInFlight = false
             switch result {
             case .success(let state):
                 self.apply(state)
@@ -140,6 +154,7 @@ final class AppStore: ObservableObject {
     /// Stops then starts Colima to apply a new config (CPU / memory / disk).
     func restartColima() {
         if transition != nil { return }
+        operationInFlight = true
         manager.stopColima(onTransition: { [weak self] state in
             self?.apply(state)
         }, completion: { [weak self] result in
@@ -149,6 +164,7 @@ final class AppStore: ObservableObject {
                 self.manager.startColima(onTransition: { [weak self] state in
                     self?.apply(state)
                 }, completion: { [weak self] result in
+                    self?.operationInFlight = false
                     switch result {
                     case .success(let state):
                         self?.apply(state)
@@ -157,6 +173,7 @@ final class AppStore: ObservableObject {
                     }
                 })
             case .failure(let error):
+                self.operationInFlight = false
                 self.fail(error)
             }
         })
@@ -350,9 +367,11 @@ final class AppStore: ObservableObject {
         if let container {
             section = .containers
             selectedContainer = container
+            selectedStack = nil
         } else if let stack {
             section = .compose
             selectedStack = stack
+            selectedContainer = nil
         }
         delegate?.dashboardWindowController.showDashboard()
     }
