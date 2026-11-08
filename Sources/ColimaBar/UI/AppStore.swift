@@ -16,6 +16,7 @@ enum ContentRoute: Equatable {
 /// Single source of observable state shared by the status bar, the dashboard and the popover.
 final class AppStore: ObservableObject {
     let manager: ColimaManager
+    let modules = ModuleControllers()
 
     @Published private(set) var state: ColimaAppState = .unknown
     @Published private(set) var history = MetricHistoryStore(capacity: 60)
@@ -54,6 +55,7 @@ final class AppStore: ObservableObject {
         if !statsMissing { history.record(state.containerStats) }
         if case .transitioning(let label) = state.colima { transition = label } else { transition = nil }
         self.state = state
+        modules.updateContainers(state.containers)
     }
 
     func refresh() {

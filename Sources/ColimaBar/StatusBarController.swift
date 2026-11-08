@@ -502,18 +502,7 @@ final class StatusBarController {
 
     @objc private func stopColima() { store.stopColima() }
 
-    @objc private func showAbout() {
-        NSApp.activate(ignoringOtherApps: true)
-        NSApp.orderFrontStandardAboutPanel(options: [
-            .credits: NSAttributedString(
-                string: L.t("Colima + Docker dans votre barre de menus.",
-                            "Colima + Docker in your menu bar."),
-                attributes: [
-                    .font: NSFont.systemFont(ofSize: 11),
-                    .foregroundColor: NSColor.secondaryLabelColor,
-                ]),
-        ])
-    }
+    @objc private func showAbout() { (NSApp.delegate as? AppDelegate)?.showAbout() }
 
     @objc private func openPortainer() { store.openPortainer() }
 

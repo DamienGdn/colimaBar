@@ -55,6 +55,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         UNUserNotificationCenter.current().add(request)
     }
 
+    func showAbout() {
+        NSApp.activate(ignoringOtherApps: true)
+        NSApp.orderFrontStandardAboutPanel(options: [
+            .credits: NSAttributedString(
+                string: L.t("Colima + Docker dans votre barre de menus.",
+                            "Colima + Docker in your menu bar."),
+                attributes: [
+                    .font: NSFont.systemFont(ofSize: 11),
+                    .foregroundColor: NSColor.secondaryLabelColor,
+                ]),
+        ])
+    }
+
     // MARK: - Login item
 
     func isLoginItemEnabled() -> Bool {
