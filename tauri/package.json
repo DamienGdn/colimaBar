@@ -1,0 +1,15 @@
+{
+  "name": "colimabar-desktop",
+  "private": true,
+  "version": "1.11.0",
+  "description": "ColimaBar for Linux and Windows (Tauri)",
+  "scripts": {
+    "tauri": "tauri",
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "preview": "npx http-server src -p 5174 -c-1"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "2.12.4"
+  }
+}

@@ -4,17 +4,20 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/macOS-13%2B-3B4CCA?logo=apple&logoColor=white" alt="macOS 13+">
+  <img src="https://img.shields.io/badge/Linux-deb%20%C2%B7%20rpm%20%C2%B7%20AppImage-12A894?logo=linux&logoColor=white" alt="Linux">
+  <img src="https://img.shields.io/badge/Windows-10%20%2F%2011-F26B1D?logo=windows&logoColor=white" alt="Windows">
   <img src="https://img.shields.io/badge/Apple%20Silicon-M1%E2%80%93M4-12A894" alt="Apple Silicon">
   <img src="https://img.shields.io/badge/Swift-5.9-F26B1D?logo=swift&logoColor=white" alt="Swift 5.9">
-  <img src="https://img.shields.io/badge/version-1.10.0-22307F" alt="v1.10.0">
+  <img src="https://img.shields.io/badge/version-1.11.0-22307F" alt="v1.11.0">
   <a href="https://github.com/DamienGdn/colimaBar/actions/workflows/swift.yml"><img src="https://github.com/DamienGdn/colimaBar/actions/workflows/swift.yml/badge.svg" alt="CI"></a>
 </p>
 
-**ColimaBar** is a native macOS menu bar app for [Colima](https://github.com/abiosoft/colima) — a lightweight Docker Desktop alternative.
+**ColimaBar** is a native macOS menu bar app for [Colima](https://github.com/abiosoft/colima) — a lightweight Docker Desktop alternative — now also available for **Linux and Windows** as a system-tray app.
 Start and stop your VM, watch containers live, browse Compose projects, images, volumes and networks, and tune resources without opening a terminal.
 
 <p align="center">
   <a href="#install">Install</a> ·
+  <a href="#linux--windows">Linux & Windows</a> ·
   <a href="#features">Features</a> ·
   <a href="#screenshots">Screenshots</a> ·
   <a href="#usage">Usage</a> ·
@@ -45,6 +48,22 @@ open /Applications/ColimaBar.app
 > The app is ad-hoc signed. On first launch: right-click → **Open** → **Open anyway**.
 
 Portainer (optional) runs at **https://localhost:9443** — accept the self-signed certificate on first visit.
+
+## Linux & Windows
+
+A cross-platform edition built with [Tauri 2](https://tauri.app) lives in [`tauri/`](tauri):
+
+- **Linux** — drives **Colima** when installed, otherwise the local **Docker** daemon. Packages: `.deb`, `.rpm`, `AppImage`.
+- **Windows 10 / 11** — drives **Docker Desktop** or **Docker Engine in WSL2** (`wsl -e docker`). Installers: `.exe` (NSIS), `.msi`.
+- Same feature set as the macOS panel: system tray with live status, Compose / Containers / Images / Volumes / Networks, live logs, shell, env, inspect, restart policy, sparklines, notifications, FR / EN.
+
+| Compose (light) | Containers (dark) |
+|---|---|
+| ![Desktop compose](docs/desktop-compose.png) | ![Desktop containers](docs/desktop-containers-dark.png) |
+
+<sub>Screenshots use the built-in demo data (`npm run preview`).</sub>
+
+Download builds from the [Desktop workflow](https://github.com/DamienGdn/colimaBar/actions/workflows/desktop.yml) artifacts or the Releases page. Build instructions: [`tauri/README.md`](tauri/README.md).
 
 ## Features
 
@@ -225,7 +244,8 @@ Sources/
 Tests/ColimaBarTests/              # Custom test runner
 Resources/                         # Info.plist, AppIcon.icns, menu bar glyph
 design/                            # Vector sources for all artwork
-scripts/                          # render-icons.mjs (SVG → PNG), pack-icns.py
+scripts/                          # render-icons.mjs (SVG → PNG/ICO), pack-icns.py
+tauri/                            # Linux & Windows edition (Tauri 2: Rust + web UI)
 ```
 
 ## Credits
