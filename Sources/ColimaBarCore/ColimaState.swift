@@ -27,6 +27,7 @@ public struct ColimaAppState: Equatable {
     public let colima: ColimaRunningState
     public let cpus: Int?
     public let memoryGB: Double?
+    public let diskGB: Double?
     public let portainerExists: Bool
     public let usage: ResourceUsage?
     public let containerStats: [String: ResourceUsage]
@@ -38,6 +39,7 @@ public struct ColimaAppState: Equatable {
         colima: ColimaRunningState,
         cpus: Int? = nil,
         memoryGB: Double? = nil,
+        diskGB: Double? = nil,
         portainerExists: Bool = false,
         usage: ResourceUsage? = nil,
         containerStats: [String: ResourceUsage] = [:],
@@ -48,6 +50,7 @@ public struct ColimaAppState: Equatable {
         self.colima = colima
         self.cpus = cpus
         self.memoryGB = memoryGB
+        self.diskGB = diskGB
         self.portainerExists = portainerExists
         self.usage = usage
         self.containerStats = containerStats
@@ -64,4 +67,5 @@ public struct ColimaListEntry: Codable {
     public let status: String
     public let cpus: Int
     public let memory: Int64
+    public let disk: Int64?
 }

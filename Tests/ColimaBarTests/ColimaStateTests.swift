@@ -439,3 +439,24 @@ func test_composeProject_nil_otherLabels() {
                             labels: "maintainer=nginx,version=1.0")
     checkNil(c.composeProject, "other labels but no compose project → nil")
 }
+
+// MARK: - Disk size tests
+
+func test_parseListJSON_disk() {
+    let json = #"{"name":"default","status":"Running","cpus":2,"memory":4294967296,"disk":64424509440}"#
+    checkEqual(ColimaManager.parseListJSON(json)?.disk, 64_424_509_440, "disk bytes decoded")
+}
+
+func test_parseListJSON_noDisk_stillParses() {
+    let json = #"{"name":"default","status":"Running","cpus":2,"memory":4294967296}"#
+    checkNotNil(ColimaManager.parseListJSON(json), "entry without disk still parses")
+}
+
+func test_fetchStateSync_diskGB() {
+    let json = #"{"name":"default","status":"Running","cpus":2,"memory":4294967296,"disk":64424509440}"#
+    let mock = MockShellRunner()
+    mock.responses[makeKey(_colimaPath, ["list", "--json"])] = (output: json, error: "", exitCode: 0)
+    let manager = ColimaManager(shell: mock, colimaPath: _colimaPath, dockerPath: _dockerPath)
+    let state = manager.fetchStateSync()
+    checkEqual(state.diskGB, 60.0, "diskGB = disk / 1_073_741_824")
+}
