@@ -204,3 +204,21 @@ Source : `StatusBarController.swift`.
   panneau, **en clair et en sombre**, comparées à `docs/banner.png` et aux
   captures Tauri.
 - Parcours manuel de chaque ligne du tableau d'inventaire ci-dessus.
+
+## Addendum (2026-11-08) — icône qui « respire » pendant les transitions
+
+Demande utilisateur : pendant un démarrage **ou** un arrêt de Colima, l'icône de
+la barre de statut (Mac) et de la barre des tâches / zone de notification
+(Windows/Linux, app Tauri) « respire » : le lama pulse doucement en opacité,
+la pastille orange de transition reste visible. Retour à l'icône normale dès
+que l'état n'est plus en transition.
+
+- Rythme : un cycle complet ≈ 1,6 s, opacité du lama entre 0,45 et 1,0
+  (courbe douce, sinusoïdale).
+- Mac : redessin de l'icône ≈ 15 fois/s **uniquement** pendant la transition
+  (timer arrêté sinon, aucun coût au repos).
+- Windows/Linux : suite d'images (≈ 8) affichées en boucle dans l'icône tray
+  pendant la transition ; génération des images au choix du constructeur
+  (assets pré-rendus ou calcul au lancement à partir de l'icône existante).
+- Choix fait par Claude : l'animation couvre démarrage et arrêt (toute
+  transition), pas seulement le démarrage.

@@ -347,3 +347,44 @@ func test_metricHistoryStore_prune()         // record(["a","b"]) puis record(["
 - [ ] **Step 3:** Captures (`screencapture -l <windowid>` ou ⌘⇧4) de : panneau, Compose, Containers, Images, Volumes, Parcourir, Networks, Logs, Snapshots, Réglages — **en clair puis en sombre** ; basculer l'apparence fenêtre ouverte et vérifier le changement en direct. Comparer à `docs/banner.png` et aux captures Tauri.
 - [ ] **Step 4:** Colima arrêté (`colima stop`) : panneau et Dashboard affichent l'état vide, aucune action Docker active ; redémarrer depuis le panneau.
 - [ ] **Step 5:** Commit des corrections `fix(ui): visual polish after review`.
+
+---
+
+> **Ordre d'exécution :** Tasks 1-10, puis 12, 13, puis 11 (la vérification visuelle finale couvre aussi l'animation).
+
+### Task 12: Icône Mac qui respire pendant les transitions
+
+**Files:**
+- Create: `Sources/ColimaBarCore/BreathingCurve.swift`
+- Create: `Tests/ColimaBarTests/BreathingCurveTests.swift`; Modify: `Tests/ColimaBarTests/main.swift`
+- Modify: `Sources/ColimaBar/StatusBarController.swift` (`updateIcon`, `colimaIcon`)
+
+**Interfaces:**
+- Produces: `public enum BreathingCurve { public static let period: TimeInterval = 1.6; public static let minAlpha: Double = 0.45; public static func alpha(at time: TimeInterval) -> Double }` — sinusoïde, `alpha(0) == 1.0`, minimum `0.45` à `period/2`, périodique.
+
+- [ ] **Step 1: Tests**
+```swift
+func test_breathing_startsOpaque()      // alpha(at: 0) ≈ 1.0 (±0.001)
+func test_breathing_minAtHalfPeriod()   // alpha(at: 0.8) ≈ 0.45
+func test_breathing_periodic()          // alpha(at: 0.3) ≈ alpha(at: 1.9)
+func test_breathing_bounds()            // pour t in 0..<3.2 pas 0.05 : 0.45 ≤ alpha ≤ 1.0
+```
+- [ ] **Step 2:** `make test` → FAIL.
+- [ ] **Step 3:** Implémenter `BreathingCurve`. Dans `StatusBarController` : sur `.transitioning`, démarrer un `Timer` (~1/15 s, mode `.common`) qui redessine l'icône avec l'opacité du lama = `BreathingCurve.alpha(at: elapsed)` (pastille orange pleine opacité) ; sur tout autre état, invalider le timer et dessiner l'icône statique. Pas de timer si déjà en cours ; aucune fuite (`[weak self]`, invalidation dans `deinit`).
+- [ ] **Step 4:** `make test` → PASS ; `swift build` sans warning ; `pkill -x ColimaBar; make open` (nouveau PID).
+- [ ] **Step 5:** Commit `feat(ui): breathing status bar icon during Colima transitions`.
+
+### Task 13: Icône tray Tauri qui respire (Windows/Linux)
+
+**Files:**
+- Modify: `tauri/src-tauri/src/tray.rs` (+ module helper si besoin, ex. `tauri/src-tauri/src/breathing.rs`)
+- Assets éventuels : `tauri/src-tauri/icons/tray/transitioning-*.png`
+
+**Interfaces:**
+- Produces: `fn breathing_alpha(t_secs: f64) -> f64` (même courbe que Task 12 : période 1.6, min 0.45, `alpha(0) = 1.0`) avec tests `#[cfg(test)]` équivalents à Task 12 ; animation tray : tant que le snapshot est `Transitioning`, un thread/timer fait défiler ~8 images (≈ 200 ms/image) ; arrêt et icône statique dès qu'on sort de la transition ; pas de thread qui survit/duplique (un seul animateur actif).
+
+- [ ] **Step 1:** Tests Rust de `breathing_alpha` (mêmes 4 cas).
+- [ ] **Step 2:** `cargo test` dans `tauri/src-tauri` → FAIL.
+- [ ] **Step 3:** Implémenter courbe + frames (pré-rendues ou dérivées de `transitioning.png` en modulant l'alpha du lama ; au choix) + animateur dans `tray.rs` ; respecter le cache `last_icon` existant (ne pas le casser pour les états statiques).
+- [ ] **Step 4:** `cargo test` → PASS ; `cargo build` (ou `cargo check`) OK. Si la toolchain Rust est absente, le dire (BLOCKED avec la commande d'installation) plutôt que livrer non compilé.
+- [ ] **Step 5:** Commit `feat(desktop): breathing tray icon during Colima transitions`.
