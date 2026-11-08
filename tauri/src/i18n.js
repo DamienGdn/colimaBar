@@ -1,0 +1,113 @@
+// FR / EN strings. `t(key, vars)` picks the active language.
+const STRINGS = {
+  en: {
+    running: 'Running', stopped: 'Stopped', unavailable: 'Unavailable', starting: 'Starting…',
+    start: 'Start', stop: 'Stop', restart: 'Restart', logs: 'Logs', shell: 'Shell', env: 'Env',
+    inspect: 'Inspect', remove: 'Remove', refresh: 'Refresh', settings: 'Settings', close: 'Close',
+    cancel: 'Cancel', confirm: 'Confirm', copy: 'Copy', copied: 'Copied', save: 'Save',
+    startEngine: 'Start Colima', stopEngine: 'Stop Colima',
+    tabCompose: 'Compose', tabContainers: 'Containers', tabImages: 'Images', tabVolumes: 'Volumes', tabNetworks: 'Networks',
+    search: 'Search…', all: 'All', runningOnly: 'Running',
+    colName: 'Name', colImage: 'Image', colStatus: 'Status', colPorts: 'Ports', colCpu: 'CPU', colRam: 'RAM',
+    colRestart: 'Restart', colRepo: 'Repository', colTag: 'Tag', colSize: 'Size', colCreated: 'Created',
+    colDriver: 'Driver', colScope: 'Scope', colUsedBy: 'Used by', colId: 'ID',
+    containersCount: '{n} containers', containerOne: '1 container', allRunning: 'All running', partRunning: '{r}/{t} running', projStopped: 'Stopped',
+    noProject: 'Standalone containers',
+    emptyContainers: 'No containers yet', emptyContainersHint: 'Run `docker run hello-world` or `docker compose up` and they will show up here.',
+    emptyCompose: 'No Compose projects', emptyComposeHint: 'Containers started with Docker Compose are grouped here by project.',
+    emptySearch: 'Nothing matches “{q}”',
+    engineStoppedTitle: 'Colima is stopped', engineStoppedHint: 'Start the VM to manage your containers.',
+    dockerUnavailableTitle: 'Docker is not reachable',
+    dockerHintLinux: 'Start the Docker daemon (`sudo systemctl start docker`) or install Colima, then refresh.',
+    dockerHintWindows: 'Start Docker Desktop, or Docker Engine inside WSL2. With WSL2 only, set the Docker command to `wsl -e docker` in Settings.',
+    dockerHintMac: 'Install Colima (`brew install colima docker`) or start Docker.',
+    selectContainer: 'Select a container to see details',
+    cpuHistory: 'CPU', ramHistory: 'Memory', health: 'Health', restartPolicy: 'Restart policy', ports: 'Ports',
+    pullPlaceholder: 'image:tag (e.g. nginx:latest)', pull: 'Pull', pulling: 'Pulling {name}…', pulled: '{name} pulled',
+    pruneVolumes: 'Prune volumes…', pruneNetworks: 'Prune networks…', pruneImages: 'Prune dangling images…', pruneSystem: 'Prune Docker…',
+    pruneSystemText: 'Removes stopped containers, unused networks, dangling images and build cache. This cannot be undone.',
+    pruneVolumesText: 'Removes all volumes not used by at least one container. This cannot be undone.',
+    pruneNetworksText: 'Removes all networks not used by at least one container.',
+    pruneImagesText: 'Removes dangling (untagged) images.',
+    removeContainerText: 'Force-remove container “{name}”? Its data outside volumes is lost.',
+    removeImageText: 'Delete image “{name}”?',
+    done: 'Done', error: 'Error',
+    follow: 'Follow', pause: 'Pause', clear: 'Clear', logsOf: 'Logs — {name}', envOf: 'Environment — {name}', inspectOf: 'Inspect — {name}',
+    shellPrompt: 'Command to run in “{name}”', shellOpened: 'Terminal opened',
+    openPortainer: 'Open Portainer', installPortainer: 'Install Portainer',
+    sGeneral: 'General', sEngine: 'Engine', sColima: 'Colima resources',
+    sLanguage: 'Language', sSystem: 'System', sPolling: 'Refresh interval', sFast: 'Fast', sNormal: 'Normal', sSlow: 'Slow',
+    sDockerCmd: 'Docker command', sDockerCmdHint: 'Leave empty to auto-detect. Examples: `wsl -e docker`, `podman`.',
+    sUseColima: 'Use Colima when installed', sProfile: 'Colima profile', sCpus: 'CPUs', sMemory: 'Memory', sDisk: 'Disk',
+    sAutoStartEngine: 'Start Colima when ColimaBar launches', sAutostart: 'Launch ColimaBar at login',
+    sStartHidden: 'Start hidden in the system tray', sAlerts: 'Resource alerts (CPU > 80 %, RAM > 90 %)',
+    sApplyRestart: 'Changes to CPU / memory / disk apply on the next Colima start.',
+    sSaved: 'Settings saved', backendColima: 'Colima', backendDocker: 'Docker',
+    about: 'ColimaBar {v} · {os}', quit: 'Quit ColimaBar',
+    noColima: 'Colima not detected — managing Docker directly',
+    pending_start: 'starting…', pending_stop: 'stopping…', pending_restart: 'restarting…', pending_remove: 'removing…',
+  },
+  fr: {
+    running: 'En cours', stopped: 'Arrêté', unavailable: 'Indisponible', starting: 'Démarrage…',
+    start: 'Démarrer', stop: 'Arrêter', restart: 'Redémarrer', logs: 'Logs', shell: 'Shell', env: 'Env',
+    inspect: 'Inspecter', remove: 'Supprimer', refresh: 'Actualiser', settings: 'Paramètres', close: 'Fermer',
+    cancel: 'Annuler', confirm: 'Confirmer', copy: 'Copier', copied: 'Copié', save: 'Enregistrer',
+    startEngine: 'Démarrer Colima', stopEngine: 'Arrêter Colima',
+    tabCompose: 'Compose', tabContainers: 'Containers', tabImages: 'Images', tabVolumes: 'Volumes', tabNetworks: 'Réseaux',
+    search: 'Rechercher…', all: 'Tous', runningOnly: 'Actifs',
+    colName: 'Nom', colImage: 'Image', colStatus: 'Statut', colPorts: 'Ports', colCpu: 'CPU', colRam: 'RAM',
+    colRestart: 'Restart', colRepo: 'Dépôt', colTag: 'Tag', colSize: 'Taille', colCreated: 'Créée',
+    colDriver: 'Driver', colScope: 'Portée', colUsedBy: 'Utilisé par', colId: 'ID',
+    containersCount: '{n} containers', containerOne: '1 container', allRunning: 'Tous actifs', partRunning: '{r}/{t} actifs', projStopped: 'Arrêté',
+    noProject: 'Containers indépendants',
+    emptyContainers: 'Aucun container', emptyContainersHint: 'Lancez `docker run hello-world` ou `docker compose up`, ils apparaîtront ici.',
+    emptyCompose: 'Aucun projet Compose', emptyComposeHint: 'Les containers lancés avec Docker Compose sont regroupés ici par projet.',
+    emptySearch: 'Aucun résultat pour « {q} »',
+    engineStoppedTitle: 'Colima est arrêté', engineStoppedHint: 'Démarrez la VM pour gérer vos containers.',
+    dockerUnavailableTitle: 'Docker est injoignable',
+    dockerHintLinux: 'Démarrez le démon Docker (`sudo systemctl start docker`) ou installez Colima, puis actualisez.',
+    dockerHintWindows: 'Démarrez Docker Desktop, ou Docker Engine dans WSL2. Avec WSL2 uniquement, réglez la commande Docker sur `wsl -e docker` dans les Paramètres.',
+    dockerHintMac: 'Installez Colima (`brew install colima docker`) ou démarrez Docker.',
+    selectContainer: 'Sélectionnez un container pour voir le détail',
+    cpuHistory: 'CPU', ramHistory: 'Mémoire', health: 'Santé', restartPolicy: 'Politique de redémarrage', ports: 'Ports',
+    pullPlaceholder: 'image:tag (ex. nginx:latest)', pull: 'Pull', pulling: 'Téléchargement de {name}…', pulled: '{name} téléchargée',
+    pruneVolumes: 'Vider les volumes…', pruneNetworks: 'Purger les réseaux…', pruneImages: 'Purger les images orphelines…', pruneSystem: 'Vider Docker…',
+    pruneSystemText: 'Supprime les containers arrêtés, réseaux inutilisés, images orphelines et le cache de build. Irréversible.',
+    pruneVolumesText: 'Supprime tous les volumes non utilisés par un container. Irréversible.',
+    pruneNetworksText: 'Supprime tous les réseaux non utilisés par un container.',
+    pruneImagesText: 'Supprime les images orphelines (sans tag).',
+    removeContainerText: 'Supprimer de force le container « {name} » ? Ses données hors volumes seront perdues.',
+    removeImageText: 'Supprimer l’image « {name} » ?',
+    done: 'Terminé', error: 'Erreur',
+    follow: 'Suivre', pause: 'Pause', clear: 'Effacer', logsOf: 'Logs — {name}', envOf: 'Environnement — {name}', inspectOf: 'Inspection — {name}',
+    shellPrompt: 'Commande à lancer dans « {name} »', shellOpened: 'Terminal ouvert',
+    openPortainer: 'Ouvrir Portainer', installPortainer: 'Installer Portainer',
+    sGeneral: 'Général', sEngine: 'Moteur', sColima: 'Ressources Colima',
+    sLanguage: 'Langue', sSystem: 'Système', sPolling: 'Fréquence d’actualisation', sFast: 'Rapide', sNormal: 'Normal', sSlow: 'Lent',
+    sDockerCmd: 'Commande Docker', sDockerCmdHint: 'Laisser vide pour la détection auto. Exemples : `wsl -e docker`, `podman`.',
+    sUseColima: 'Utiliser Colima s’il est installé', sProfile: 'Profil Colima', sCpus: 'CPUs', sMemory: 'Mémoire', sDisk: 'Disque',
+    sAutoStartEngine: 'Démarrer Colima au lancement de ColimaBar', sAutostart: 'Lancer ColimaBar à l’ouverture de session',
+    sStartHidden: 'Démarrer masqué dans la zone de notification', sAlerts: 'Alertes ressources (CPU > 80 %, RAM > 90 %)',
+    sApplyRestart: 'Les changements CPU / mémoire / disque s’appliquent au prochain démarrage de Colima.',
+    sSaved: 'Paramètres enregistrés', backendColima: 'Colima', backendDocker: 'Docker',
+    about: 'ColimaBar {v} · {os}', quit: 'Quitter ColimaBar',
+    noColima: 'Colima non détecté — gestion directe de Docker',
+    pending_start: 'démarrage…', pending_stop: 'arrêt…', pending_restart: 'redémarrage…', pending_remove: 'suppression…',
+  },
+};
+
+let LANG = (navigator.language || 'en').toLowerCase().startsWith('fr') ? 'fr' : 'en';
+
+export function setLang(lang) {
+  LANG = lang === 'fr' || lang === 'en' ? lang : LANG;
+  document.documentElement.lang = LANG;
+}
+
+export function lang() {
+  return LANG;
+}
+
+export function t(key, vars = {}) {
+  const s = STRINGS[LANG][key] ?? STRINGS.en[key] ?? key;
+  return s.replace(/\{(\w+)\}/g, (_, k) => (vars[k] ?? ''));
+}

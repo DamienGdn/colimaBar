@@ -38,6 +38,7 @@ icons:
 	else \
 		python3 scripts/pack-icns.py; \
 	fi
+	cp Resources/AppIcon.icns tauri/src-tauri/icons/icon.icns
 	@echo "Icons updated."
 
 clean:

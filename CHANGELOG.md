@@ -1,5 +1,23 @@
 # Changelog
 
+## v1.11.0 — 2026-11-08
+
+### New: Linux & Windows edition (`tauri/`)
+
+- Cross-platform system-tray app built with Tauri 2 (Rust backend + web UI); the macOS AppKit app is unchanged
+- **Linux**: manages Colima when installed (start/stop, profile, CPU / memory / disk), otherwise the local Docker daemon
+- **Windows**: manages Docker Desktop or Docker Engine in WSL2 (`wsl -e docker` auto-detected); console windows are never flashed
+- Tray icon with status badge, live CPU/RAM, start/stop, Portainer, prune, settings; left-click toggles the window (Windows); closing keeps the app in the tray; single instance
+- Compose / Containers / Images / Volumes / Networks tabs, detail panel with sparklines, live `docker logs -f` streaming, shell in the user's terminal (Windows Terminal, gnome-terminal, konsole, …), env vars, inspect, remove, restart policy
+- Notifications: engine started/stopped, container crash, CPU > 80 % / RAM > 90 %
+- Settings: language, refresh interval, custom Docker command, Colima profile/resources, auto-start Colima, launch at login, start hidden
+- Light & dark themes, FR / EN
+- Packages: `.deb`, `.rpm`, `AppImage`, NSIS `.exe`, `.msi` — built by the new `Desktop (Linux & Windows)` workflow, attached to releases on `v*` tags
+- Parser unit tests (`cargo test`), clippy + rustfmt in CI
+- `make icons` now also generates the Tauri PNG / ICO icons and tray icons
+
+---
+
 ## v1.10.0 — 2026-11-08
 
 ### Design
