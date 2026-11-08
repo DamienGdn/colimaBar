@@ -89,16 +89,27 @@ jobs:
       - name: Install Tauri CLI
         run: npm ci
 
+      # Bundler tools Tauri downloads from GitHub releases (NSIS, WiX,
+      # AppImage runtime/plugins). Cached so a release-download outage only
+      # affects the first run.
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/AppData/Local/tauri
+            ~/.cache/tauri
+          key: tauri-bundler-tools-${{ runner.os }}-${{ hashFiles('tauri/package-lock.json') }}
+          restore-keys: tauri-bundler-tools-${{ runner.os }}-
+
       # Bundling downloads tools (NSIS, AppImage runtime, WiX) from GitHub
       # releases, which occasionally answer 5xx. Retry; the compiled binary is
       # reused, so a retry only redoes the packaging.
       - name: Build
         shell: bash
         run: |
-          for attempt in 1 2 3; do
+          for attempt in 1 2 3 4 5; do
             npx tauri build --bundles ${{ matrix.bundles }} && exit 0
-            echo "::warning::tauri build attempt $attempt failed, retrying in 30 s"
-            sleep 30
+            echo "::warning::tauri build attempt $attempt failed, retrying in $((attempt * 45)) s"
+            sleep $((attempt * 45))
           done
           exit 1
 
@@ -109,8 +120,8 @@ jobs:
         run: |
           for attempt in 1 2 3; do
             npx tauri build --bundles ${{ matrix.optional }} && exit 0
-            echo "::warning::optional ${{ matrix.optional }} bundle attempt $attempt failed, retrying in 30 s"
-            sleep 30
+            echo "::warning::optional ${{ matrix.optional }} bundle attempt $attempt failed, retrying in $((attempt * 45)) s"
+            sleep $((attempt * 45))
           done
           echo "::warning::${{ matrix.optional }} bundle skipped (bundler tool download unavailable)"
           exit 1
