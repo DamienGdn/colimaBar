@@ -35,7 +35,14 @@ struct DashboardRootView: View {
 
     @ViewBuilder private var detail: some View {
         if isDockerSection && !colimaUp {
-            stoppedView
+            if case .unknown = store.state.colima {
+                VStack(spacing: 10) {
+                    ProgressView()
+                    Text(L.t("Chargement…", "Loading…")).foregroundColor(.tkText2)
+                }
+            } else {
+                stoppedView
+            }
         } else {
             switch store.section {
             case .logs:
