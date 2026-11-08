@@ -6,15 +6,18 @@ final class EnhancedLogsViewController: NSViewController {
     // UI
     private let containerPicker = NSPopUpButton()
     private let searchField = NSSearchField()
-    private let explainButton = NSButton(title: "Expliquer l'erreur", target: nil, action: nil)
-    private let clearButton = NSButton(title: "Clear", target: nil, action: nil)
+    private let explainButton = NSButton(title: "", target: nil, action: nil)
+    private let clearButton = NSButton(title: "", target: nil, action: nil)
     private let scrollView = NSScrollView()
+    private var card: ThemedView!
     private var textView: NSTextView!
 
     // State
     private var containers: [DockerContainer] = []
     private var allLines: [String] = []
     private var streamProcess: Process?
+    /// Whether the streamed container was running when the stream started.
+    private var streamedRunning: Bool?
     private let dockerPath = "/opt/homebrew/bin/docker"
 
     private var currentContainer: DockerContainer? {
@@ -23,7 +26,7 @@ final class EnhancedLogsViewController: NSViewController {
         return containers[idx]
     }
 
-    override func loadView() { view = NSView() }
+    override func loadView() { view = ThemedView(fill: Theme.Tokens.bg) }
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -32,17 +35,24 @@ final class EnhancedLogsViewController: NSViewController {
 
     // MARK: - Public
 
+    /// Lists every container (running first): `docker logs` also works on exited ones.
     func updateContainers(_ all: [DockerContainer]) {
         if !isViewLoaded { _ = view }
-        let running = all.filter { $0.isRunning }
-        containers = running
-        let selected = currentContainer?.name
+        let targets = LogTargets.order(all)
+        let selected = currentContainer
+        containers = targets
         containerPicker.removeAllItems()
-        containerPicker.addItems(withTitles: running.isEmpty ? ["—"] : running.map { $0.name })
-        if let sel = selected, let idx = running.firstIndex(where: { $0.name == sel }) {
+        containerPicker.addItems(withTitles: targets.isEmpty ? ["—"] : targets.map { c in
+            c.isRunning ? c.name : "\(c.name) (\(L.t("arrêté", "stopped")))"
+        })
+        if let sel = selected, let idx = targets.firstIndex(where: { $0.name == sel.name }) {
             containerPicker.selectItem(at: idx)
-        } else if !running.isEmpty {
+            // A stream started on a stopped container has ended: follow again once it runs.
+            if targets[idx].isRunning && streamedRunning == false { startStreaming() }
+        } else if !targets.isEmpty {
             startStreaming()
+        } else {
+            stopStreaming()
         }
     }
 
@@ -60,15 +70,17 @@ final class EnhancedLogsViewController: NSViewController {
         containerPicker.action = #selector(containerChanged)
         containerPicker.translatesAutoresizingMaskIntoConstraints = false
 
-        searchField.placeholderString = "Filtrer les logs…"
+        searchField.placeholderString = L.t("Filtrer les logs…", "Filter logs…")
         searchField.delegate = self
         searchField.translatesAutoresizingMaskIntoConstraints = false
 
+        explainButton.title = L.t("Expliquer l'erreur", "Explain error")
         explainButton.bezelStyle = .rounded
         explainButton.target = self
         explainButton.action = #selector(explainError)
         explainButton.translatesAutoresizingMaskIntoConstraints = false
 
+        clearButton.title = L.t("Effacer", "Clear")
         clearButton.bezelStyle = .rounded
         clearButton.target = self
         clearButton.action = #selector(clearLogs)
@@ -78,18 +90,17 @@ final class EnhancedLogsViewController: NSViewController {
         tv.isEditable = false
         tv.isSelectable = true
         tv.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
-        tv.backgroundColor = NSColor(white: 0.1, alpha: 1)
-        tv.textColor = .white
+        tv.drawsBackground = false
+        tv.textColor = Theme.Tokens.text
         tv.autoresizingMask = [.width]
         tv.textContainerInset = NSSize(width: 4, height: 4)
         textView = tv
 
         scrollView.documentView = tv
         scrollView.hasVerticalScroller = true
-        scrollView.borderType = .noBorder
-        scrollView.translatesAutoresizingMaskIntoConstraints = false
+        card = Theme.card(wrapping: scrollView)
 
-        for sub in [containerPicker, searchField, explainButton, clearButton, scrollView] as [NSView] {
+        for sub in [containerPicker, searchField, explainButton, clearButton, card] as [NSView] {
             view.addSubview(sub)
         }
 
@@ -110,10 +121,10 @@ final class EnhancedLogsViewController: NSViewController {
             explainButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -12),
             explainButton.widthAnchor.constraint(equalToConstant: 140),
 
-            scrollView.topAnchor.constraint(equalTo: containerPicker.bottomAnchor, constant: 6),
-            scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            card.topAnchor.constraint(equalTo: containerPicker.bottomAnchor, constant: 10),
+            card.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 12),
+            card.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -12),
+            card.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -12),
         ])
     }
 
@@ -121,7 +132,9 @@ final class EnhancedLogsViewController: NSViewController {
         stopStreaming()
         allLines = []
         textView.textStorage?.setAttributedString(NSAttributedString(string: ""))
+        streamedRunning = nil
         guard let container = currentContainer else { return }
+        streamedRunning = container.isRunning
 
         let proc = Process()
         proc.executableURL = URL(fileURLWithPath: dockerPath)
@@ -156,10 +169,10 @@ final class EnhancedLogsViewController: NSViewController {
         for line in filtered {
             let color: NSColor
             switch line.level {
-            case .error:   color = .systemRed
-            case .warning: color = .systemOrange
-            case .success: color = .systemGreen
-            case .normal:  color = .white
+            case .error:   color = Theme.Tokens.red
+            case .warning: color = Theme.Tokens.amber
+            case .success: color = Theme.Tokens.green
+            case .normal:  color = Theme.Tokens.text
             }
             let attrs: [NSAttributedString.Key: Any] = [
                 .font: NSFont.monospacedSystemFont(ofSize: 12, weight: .regular),

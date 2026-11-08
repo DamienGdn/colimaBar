@@ -3,6 +3,7 @@
 //! A background thread polls the engine, stores the latest [`Snapshot`],
 //! pushes it to the web UI (`snapshot` event) and refreshes the tray.
 
+mod breathing;
 mod engine;
 mod model;
 mod tray;

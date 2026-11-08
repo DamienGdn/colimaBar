@@ -1,337 +1,117 @@
 import AppKit
+import Combine
+import SwiftUI
 import ColimaBarCore
 
-final class StatusBarController {
-    private let manager: ColimaManager
+/// Status-bar item: llama icon + state badge, and a branded SwiftUI popover (`StatusPopoverView`).
+/// Also watches the polled state for container crashes and sustained high CPU / RAM.
+final class StatusBarController: NSObject {
+    private let store: AppStore
+    private var cancellables = Set<AnyCancellable>()
     private var statusItem: NSStatusItem!
-    private var menu: NSMenu!
+    private let popover = NSPopover()
     private var lastState: ColimaAppState = .unknown
+    /// Set when the transient popover was closed by a mouse-down on the status icon: the action
+    /// of that same click (fired on mouse-up) must not reopen it. Consumed by the next toggle,
+    /// or cleared right after the click's mouse-up if no toggle follows (e.g. drag off the icon).
+    private var closedByIconClick = false
+    private var clickMonitor: Any?
+    private var breathTimer: Timer?
+    private var breathStart = Date()
+    private var currentBadgeColor: NSColor?
+    private lazy var baseGlyph: NSImage = NSImage(named: "colimabar")
+        ?? NSImage(systemSymbolName: "shippingbox.fill", accessibilityDescription: "Colima Desktop")!
+    private var consecutiveHighCPU = 0
+    private var consecutiveHighRAM = 0
 
-    // Status display items
-    private var colimaStatusItem: NSMenuItem!
-    private var resourcesItem: NSMenuItem!
-    private var usageItem: NSMenuItem!
-    private var lastErrorItem: NSMenuItem!
-
-    // Action items
-    private var startItem: NSMenuItem!
-    private var stopItem: NSMenuItem!
-    private var openPortainerItem: NSMenuItem!
-    private var portainerWarningItem: NSMenuItem!
-    private var installPortainerItem: NSMenuItem!
-    private var loginItem: NSMenuItem!
-    private var quitItem: NSMenuItem!
-
-    private var isColimaRunning = false
-    private var containersItem: NSMenuItem!
-    private var pruneItem: NSMenuItem!
-    private var updateItem: NSMenuItem!
-    private var popover: NSPopover!
-    private var containersPanelVC: ContainersPanelViewController!
-    private var settingsPopover: NSPopover!
-    private var settingsPanelVC: SettingsPanelViewController!
-    private var previousContainerStates: [String: DockerContainer.ContainerState] = [:]
-    private let logsWindowController = LogsWindowController()
-    var onStateUpdate: ((ColimaAppState) -> Void)?
-    private var consecutiveHighCPU:   Int      = 0
-    private var consecutiveHighRAM:   Int      = 0
-    private var lastKnownInstances:   [String] = ["default"]
-    private var instanceSubmenuItem:  NSMenuItem?
-
-    init(manager: ColimaManager) {
-        self.manager = manager
+    init(store: AppStore) {
+        self.store = store
+        super.init()
         setupStatusItem()
-        manager.onStateChange = { [weak self] state in
-            self?.update(state: state)
-        }
+        setupPopover()
+        store.$state
+            .dropFirst()
+            .sink { [weak self] state in self?.update(state: state) }
+            .store(in: &cancellables)
     }
 
     // MARK: - Setup
 
     private func setupStatusItem() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        buildMenu()
-        statusItem.menu = menu
+        statusItem.button?.target = self
+        statusItem.button?.action = #selector(togglePopover)
         updateIcon(colima: .unknown)
-        setupContainersPopover()
-        setupSettingsPopover()
     }
 
-    private func setupContainersPopover() {
-        containersPanelVC = ContainersPanelViewController()
-        popover = NSPopover()
-        popover.contentViewController = containersPanelVC
+    private func setupPopover() {
+        let root = StatusPopoverView(close: { [weak self] in self?.popover.performClose(nil) })
+            .environmentObject(store)
+        let host = NSHostingController(rootView: root)
+        host.sizingOptions = .preferredContentSize
+        popover.contentViewController = host
         popover.behavior = .transient
         popover.animates = true
-        popover.contentSize = NSSize(width: 900, height: 560)
-
-        containersPanelVC.onStart = { [weak self] name in
-            self?.manager.startContainer(name) { [weak self] result in
-                if case .failure(let e) = result { self?.showLastError(e.localizedDescription) }
-            }
-        }
-        containersPanelVC.onStop = { [weak self] name in
-            self?.manager.stopContainer(name) { [weak self] result in
-                if case .failure(let e) = result { self?.showLastError(e.localizedDescription) }
-            }
-        }
-        containersPanelVC.onRestart = { [weak self] name in
-            self?.manager.stopContainer(name) { [weak self] result in
-                guard let self else { return }
-                if case .failure(let e) = result { self.showLastError(e.localizedDescription); return }
-                self.manager.startContainer(name) { [weak self] result in
-                    if case .failure(let e) = result { self?.showLastError(e.localizedDescription) }
-                }
-            }
-        }
-        containersPanelVC.onLogs = { [weak self] name in
-            self?.openLogsTerminal(containerName: name)
-        }
-        containersPanelVC.onShell = { [weak self] name, command in
-            self?.openShellTerminal(containerName: name, command: command)
-        }
-        containersPanelVC.onFetchImages = { [weak self] completion in
-            self?.manager.fetchImages(completion: completion)
-        }
-        containersPanelVC.onDeleteImage = { [weak self] id, completion in
-            self?.manager.deleteImage(id, completion: completion)
-        }
-        containersPanelVC.onPullImage = { [weak self] name, completion in
-            self?.manager.pullImage(name, completion: completion)
-        }
-        containersPanelVC.onFetchVolumes = { [weak self] completion in
-            self?.manager.fetchVolumes(completion: completion)
-        }
-        containersPanelVC.onPruneVolumes = { [weak self] completion in
-            self?.manager.pruneVolumes(completion: completion)
-        }
-        containersPanelVC.onFetchNetworks = { [weak self] completion in
-            self?.manager.fetchNetworks(completion: completion)
-        }
-        containersPanelVC.onPruneNetworks = { [weak self] completion in
-            self?.manager.pruneNetworks(completion: completion)
-        }
-        containersPanelVC.onSetRestartPolicy = { [weak self] policy, name, completion in
-            self?.manager.setRestartPolicy(policy, container: name, completion: completion)
-        }
-        containersPanelVC.onInspect = { [weak self] name in
-            self?.runInTerminal("docker inspect \(name)")
-        }
-        containersPanelVC.onFetchEnvVars = { [weak self] name, completion in
-            self?.manager.fetchEnvVars(container: name, completion: completion)
-        }
+        popover.delegate = self
     }
 
-    private func setupSettingsPopover() {
-        settingsPanelVC = SettingsPanelViewController()
-        settingsPanelVC.isColimaRunning    = isColimaRunning
-        settingsPanelVC.isLoginItemEnabled = (NSApp.delegate as? AppDelegate)?.isLoginItemEnabled() ?? false
-        settingsPopover = NSPopover()
-        settingsPopover.contentViewController = settingsPanelVC
-        settingsPopover.behavior = .transient
-        settingsPopover.animates = true
-        settingsPopover.contentSize = NSSize(width: 420, height: 520)
-
-        settingsPanelVC.onApplyConfig = { [weak self] in self?.restartWithNewConfig() }
-        settingsPanelVC.onResizeDisk = { [weak self] in
-            self?.restartWithNewConfig()
-        }
-        settingsPanelVC.onToggleLoginItem = { [weak self] in
-            (NSApp.delegate as? AppDelegate)?.toggleLoginItem()
-            if let enabled = (NSApp.delegate as? AppDelegate)?.isLoginItemEnabled() {
-                self?.settingsPanelVC.isLoginItemEnabled = enabled
-            }
-        }
-        settingsPanelVC.onSetLanguage = { [weak self] _ in
-            guard let self else { return }
-            let state = self.lastState
-            self.buildMenu()
-            self.statusItem.menu = self.menu
-            self.update(state: state)
-            self.setupSettingsPopover()   // rebuild with new language
-        }
+    private func clearIconClickFlag() {
+        closedByIconClick = false
+        if let monitor = clickMonitor { NSEvent.removeMonitor(monitor); clickMonitor = nil }
     }
 
-    private func buildMenu() {
-        menu = NSMenu()
-
-        // Status lines
-        colimaStatusItem = NSMenuItem(title: "Colima : …", action: nil, keyEquivalent: "")
-        colimaStatusItem.isEnabled = false
-        menu.addItem(colimaStatusItem)
-
-        resourcesItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
-        resourcesItem.isEnabled = false
-        resourcesItem.isHidden = true
-        resourcesItem.withSymbol("cpu")
-        menu.addItem(resourcesItem)
-
-        usageItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
-        usageItem.isEnabled = false
-        usageItem.isHidden = true
-        usageItem.withSymbol("chart.bar")
-        menu.addItem(usageItem)
-
-        lastErrorItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
-        lastErrorItem.isEnabled = false
-        lastErrorItem.isHidden = true
-        lastErrorItem.withSymbol("exclamationmark.triangle")
-        menu.addItem(lastErrorItem)
-
-        menu.addItem(NSMenuItem.separator())
-
-        // Colima actions
-        startItem = NSMenuItem(
-            title: L.t("Démarrer Colima", "Start Colima"),
-            action: #selector(startColima), keyEquivalent: "")
-        startItem.target = self
-        startItem.withSymbol("play.fill")
-        menu.addItem(startItem)
-
-        stopItem = NSMenuItem(
-            title: L.t("Arrêter Colima", "Stop Colima"),
-            action: #selector(stopColima), keyEquivalent: "")
-        stopItem.target = self
-        stopItem.withSymbol("stop.fill")
-        menu.addItem(stopItem)
-
-        let dashboardItem = NSMenuItem(
-            title: L.t("Ouvrir le Dashboard", "Open Dashboard"),
-            action: #selector(openDashboard),
-            keyEquivalent: "d")
-        dashboardItem.target = self
-        dashboardItem.withSymbol("rectangle.grid.2x2")
-        menu.addItem(dashboardItem)
-
-        menu.addItem(NSMenuItem.separator())
-
-        // Portainer
-        portainerWarningItem = NSMenuItem(
-            title: L.t("Portainer non installé", "Portainer not installed"),
-            action: nil, keyEquivalent: "")
-        portainerWarningItem.withSymbol("exclamationmark.triangle")
-        portainerWarningItem.isEnabled = false
-        portainerWarningItem.isHidden = true
-        menu.addItem(portainerWarningItem)
-
-        installPortainerItem = NSMenuItem(
-            title: L.t("Installer Portainer…", "Install Portainer…"),
-            action: #selector(installPortainer), keyEquivalent: "")
-        installPortainerItem.target = self
-        installPortainerItem.withSymbol("arrow.down.circle")
-        installPortainerItem.isHidden = true
-        menu.addItem(installPortainerItem)
-
-        openPortainerItem = NSMenuItem(
-            title: L.t("Ouvrir Portainer", "Open Portainer"),
-            action: #selector(openPortainer), keyEquivalent: "")
-        openPortainerItem.target = self
-        openPortainerItem.withSymbol("safari")
-        openPortainerItem.isHidden = true
-        menu.addItem(openPortainerItem)
-
-        menu.addItem(NSMenuItem.separator())
-
-        containersItem = NSMenuItem(
-            title: L.t("Containers", "Containers"),
-            action: #selector(openContainersPanel),
-            keyEquivalent: "")
-        containersItem.target = self
-        containersItem.withSymbol("shippingbox")
-        containersItem.isHidden = true
-        menu.addItem(containersItem)
-
-        pruneItem = NSMenuItem(
-            title: L.t("Vider Docker…", "Prune Docker…"),
-            action: #selector(pruneDocker),
-            keyEquivalent: "")
-        pruneItem.target = self
-        pruneItem.withSymbol("trash")
-        pruneItem.isHidden = true
-        menu.addItem(pruneItem)
-
-        updateItem = NSMenuItem(title: "", action: #selector(upgradeColima), keyEquivalent: "")
-        updateItem.target = self
-        updateItem.withSymbol("arrow.triangle.2.circlepath")
-        updateItem.isHidden = true
-        menu.addItem(updateItem)
-
-        menu.addItem(NSMenuItem.separator())
-
-        let instanceItem = NSMenuItem(title: L.t("Instance", "Instance"), action: nil, keyEquivalent: "")
-        instanceItem.submenu = NSMenu()
-        instanceItem.withSymbol("square.stack.3d.up")
-        instanceSubmenuItem  = instanceItem
-        menu.addItem(instanceItem)
-
-        let settingsItem = NSMenuItem(
-            title: L.t("Paramètres…", "Settings…"),
-            action: #selector(openSettingsPanel),
-            keyEquivalent: ",")
-        settingsItem.target = self
-        settingsItem.withSymbol("gearshape")
-        menu.addItem(settingsItem)
-
-        let aboutItem = NSMenuItem(
-            title: L.t("À propos de ColimaBar", "About ColimaBar"),
-            action: #selector(showAbout),
-            keyEquivalent: "")
-        aboutItem.target = self
-        aboutItem.withSymbol("info.circle")
-        menu.addItem(aboutItem)
-
-        menu.addItem(NSMenuItem.separator())
-
-        quitItem = NSMenuItem(
-            title: L.t("Quitter", "Quit"),
-            action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
-        quitItem.withSymbol("power")
-        menu.addItem(quitItem)
+    @objc private func togglePopover() {
+        // A fresh mouse-down on the icon that did not close a popover invalidates a stranded flag.
+        if closedByIconClick, NSApp.currentEvent?.type != .leftMouseUp, NSApp.currentEvent?.type != .rightMouseUp {
+            clearIconClickFlag()
+        }
+        if popover.isShown {
+            clearIconClickFlag()
+            popover.performClose(nil)
+            return
+        }
+        // The transient popover closes on mouse-down outside it, before this action runs.
+        if closedByIconClick {
+            clearIconClickFlag()
+            return
+        }
+        guard let button = statusItem.button else { return }
+        NSApp.activate(ignoringOtherApps: true)
+        popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+        popover.contentViewController?.view.window?.makeKey()
     }
 
     // MARK: - State updates
 
-    func update(state: ColimaAppState) {
+    private func update(state: ColimaAppState) {
         if case .running = state.colima, case .running = lastState.colima {
             detectContainerCrashes(prev: lastState.containers, new: state.containers)
         }
         lastState = state
         updateIcon(colima: state.colima)
-        updateMenuItems(state: state)
-        settingsPanelVC?.isColimaRunning = isColimaRunning
+        checkResourceAlerts(state.usage)
+    }
 
-        // Resource alerts — fire notification after 2 consecutive cycles above threshold
-        if let u = state.usage {
-            if u.cpuPercent > 80 {
-                consecutiveHighCPU += 1
-                if consecutiveHighCPU == 2 {
-                    let msg = L.t("CPU élevé : \(String(format: "%.0f%%", u.cpuPercent))",
-                                  "High CPU: \(String(format: "%.0f%%", u.cpuPercent))")
-                    (NSApp.delegate as? AppDelegate)?.showError(msg)
-                    consecutiveHighCPU = 0
-                }
-            } else { consecutiveHighCPU = 0 }
-
-            if u.memUsedPercent > 90 {
-                consecutiveHighRAM += 1
-                if consecutiveHighRAM == 2 {
-                    let msg = L.t("RAM élevée : \(String(format: "%.0f%%", u.memUsedPercent))",
-                                  "High RAM: \(String(format: "%.0f%%", u.memUsedPercent))")
-                    (NSApp.delegate as? AppDelegate)?.showError(msg)
-                    consecutiveHighRAM = 0
-                }
-            } else { consecutiveHighRAM = 0 }
-        }
-
-        // Refresh instance list cache when running
-        if case .running = state.colima {
-            manager.listInstances { [weak self] names in
-                self?.lastKnownInstances = names
-                self?.rebuildInstanceSubmenu()
+    /// Fires a notification after 2 consecutive cycles above threshold.
+    private func checkResourceAlerts(_ usage: ResourceUsage?) {
+        guard let u = usage else { return }
+        if u.cpuPercent > 80 {
+            consecutiveHighCPU += 1
+            if consecutiveHighCPU == 2 {
+                let value = String(format: "%.0f%%", u.cpuPercent)
+                (NSApp.delegate as? AppDelegate)?.showError(L.t("CPU élevé : \(value)", "High CPU: \(value)"))
+                consecutiveHighCPU = 0
             }
-        }
+        } else { consecutiveHighCPU = 0 }
 
-        onStateUpdate?(state)
+        if u.memUsedPercent > 90 {
+            consecutiveHighRAM += 1
+            if consecutiveHighRAM == 2 {
+                let value = String(format: "%.0f%%", u.memUsedPercent)
+                (NSApp.delegate as? AppDelegate)?.showError(L.t("RAM élevée : \(value)", "High RAM: \(value)"))
+                consecutiveHighRAM = 0
+            }
+        } else { consecutiveHighRAM = 0 }
     }
 
     private func updateIcon(colima: ColimaRunningState) {
@@ -342,7 +122,13 @@ final class StatusBarController {
         case .transitioning:     badgeColor = Theme.Status.transitioning
         case .stopped, .unknown: badgeColor = nil   // dimmed glyph, no badge
         }
-        button.image = colimaIcon(badgeColor: badgeColor)
+        currentBadgeColor = badgeColor
+        if case .transitioning = colima, !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+            startBreathing()
+        } else {
+            stopBreathing()
+            button.image = colimaIcon(badgeColor: badgeColor)
+        }
         button.toolTip = "ColimaBar"
 
         if ColimaConfig.compactModeEnabled, case .running = colima {
@@ -355,16 +141,45 @@ final class StatusBarController {
         }
     }
 
+    // MARK: - Breathing icon
+
+    /// Starts the ~15 fps redraw timer (no-op if already running); only used while transitioning.
+    private func startBreathing() {
+        guard breathTimer == nil else { return }
+        breathStart = Date()
+        redrawBreathingIcon()
+        let timer = Timer(timeInterval: 1.0 / 15.0, repeats: true) { [weak self] _ in
+            self?.redrawBreathingIcon()
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        breathTimer = timer
+    }
+
+    private func stopBreathing() {
+        breathTimer?.invalidate()
+        breathTimer = nil
+    }
+
+    private func redrawBreathingIcon() {
+        let alpha = BreathingCurve.alpha(at: Date().timeIntervalSince(breathStart))
+        statusItem.button?.image = colimaIcon(badgeColor: currentBadgeColor, glyphAlpha: alpha)
+    }
+
+    deinit {
+        breathTimer?.invalidate()
+        if let monitor = clickMonitor { NSEvent.removeMonitor(monitor) }
+    }
+
     /// Menu bar icon: the llama glyph tinted with the menu bar label color,
     /// dimmed when Colima is stopped, with a colored status badge otherwise.
-    private func colimaIcon(badgeColor: NSColor?) -> NSImage {
-        let base = NSImage(named: "colimabar")
-            ?? NSImage(systemSymbolName: "shippingbox.fill", accessibilityDescription: "Colima Desktop")!
+    /// `glyphAlpha` (breathing) scales the glyph only; the badge stays fully opaque.
+    private func colimaIcon(badgeColor: NSColor?, glyphAlpha: Double = 1.0) -> NSImage {
+        let base = baseGlyph
         let size = NSSize(width: 22, height: 22)
         let result = NSImage(size: size, flipped: false) { rect in
             // Glyph in labelColor (adapts to dark/light menu bar)
             base.draw(in: rect, from: .zero, operation: .sourceOver,
-                      fraction: badgeColor == nil ? 0.55 : 1.0)
+                      fraction: badgeColor == nil ? 0.55 : CGFloat(glyphAlpha))
             NSColor.labelColor.set()
             rect.fill(using: .sourceAtop)
 
@@ -388,214 +203,6 @@ final class StatusBarController {
         return result
     }
 
-    func updateMenuItems(state: ColimaAppState) {
-        let running: Bool
-        switch state.colima {
-        case .running:  running = true
-        default:        running = false
-        }
-
-        let transitioning: Bool
-        if case .transitioning(let msg) = state.colima {
-            colimaStatusItem.title = "Colima : \(msg)"
-            colimaStatusItem.image = Theme.statusDot(Theme.Status.transitioning)
-            transitioning = true
-        } else {
-            colimaStatusItem.title = running
-                ? L.t("Colima : En cours d'exécution", "Colima: Running")
-                : L.t("Colima : Arrêté", "Colima: Stopped")
-            colimaStatusItem.image = Theme.statusDot(running ? Theme.Status.running : .tertiaryLabelColor)
-            transitioning = false
-        }
-
-        if let cpus = state.cpus, let mem = state.memoryGB {
-            let label = L.t("Mémoire allouée", "Allocated memory")
-            resourcesItem.title = String(format: "CPUs: %d  ·  \(label): %.0f GB", cpus, mem)
-            resourcesItem.isHidden = false
-        } else {
-            resourcesItem.isHidden = true
-        }
-
-        if let u = state.usage {
-            usageItem.title = String(format: "CPU: %.1f%%  ·  RAM: %@ / %.1f GB (%.0f%%)",
-                                     u.cpuPercent, u.memUsedFormatted, u.memTotalGiB, u.memUsedPercent)
-            usageItem.isHidden = false
-        } else {
-            usageItem.isHidden = true
-        }
-
-        startItem.isEnabled = !running && !transitioning
-        stopItem.isEnabled = running && !transitioning
-
-        openPortainerItem.isHidden = !running || !state.portainerExists
-        portainerWarningItem.isHidden = !running || state.portainerExists
-        installPortainerItem.isHidden = !running || state.portainerExists
-
-        isColimaRunning = running
-        pruneItem.isHidden = !running
-
-        updateContainersItem(state.containers)
-    }
-
-    private func updateContainersItem(_ containers: [DockerContainer]) {
-        guard !containers.isEmpty else {
-            containersItem.isHidden = true
-            return
-        }
-        let running = containers.filter { $0.isRunning }.count
-        containersItem.title = "\(running)/\(containers.count) \(L.t("containers", "containers"))…"
-        containersItem.isHidden = false
-        if popover?.isShown == true {
-            containersPanelVC.update(containers: containers, usage: lastState.usage,
-                                     containerStats: lastState.containerStats,
-                                     restartPolicies: lastState.restartPolicies)
-        }
-    }
-
-    private func rebuildInstanceSubmenu() {
-        guard let submenu = instanceSubmenuItem?.submenu else { return }
-        submenu.removeAllItems()
-        let current = ColimaConfig.activeInstanceName
-        for name in lastKnownInstances {
-            let item = NSMenuItem(title: name, action: #selector(switchInstance(_:)), keyEquivalent: "")
-            item.target = self
-            item.state  = name == current ? .on : .off
-            submenu.addItem(item)
-        }
-    }
-
-    @objc private func switchInstance(_ sender: NSMenuItem) {
-        let name = sender.title
-        guard name != ColimaConfig.activeInstanceName else { return }
-        ColimaConfig.activeInstanceName = name
-        manager.stopPolling()
-        manager.startPolling()
-    }
-
-    func showLastError(_ message: String) {
-        lastErrorItem.title = String(message.prefix(80))
-        lastErrorItem.isHidden = false
-    }
-
-    func clearLastError() {
-        lastErrorItem.isHidden = true
-    }
-
-    // MARK: - Actions
-
-    @objc private func openDashboard() {
-        (NSApp.delegate as? AppDelegate)?.dashboardWindowController.showDashboard()
-    }
-
-    @objc private func startColima() {
-        (NSApp.delegate as? AppDelegate)?.showSuccess(L.t("Démarrage de Colima…", "Starting Colima…"))
-        manager.startColima(onTransition: { [weak self] state in
-            self?.update(state: state)
-        }, completion: { [weak self] result in
-            guard let self else { return }
-            let appDelegate = NSApp.delegate as? AppDelegate
-            switch result {
-            case .success(let state):
-                self.update(state: state)
-                self.clearLastError()
-                let duration = Int(state.startDuration ?? 0)
-                let running = state.containers.filter { $0.isRunning }.count
-                let msg = L.t(
-                    "Colima démarré en \(duration)s — \(running) container(s) actif(s)",
-                    "Colima started in \(duration)s — \(running) container(s) running"
-                )
-                appDelegate?.showSuccess(msg)
-            case .failure(let error):
-                appDelegate?.showError(error.localizedDescription)
-                self.showLastError(error.localizedDescription)
-                self.update(state: .unknown)
-            }
-        })
-    }
-
-    @objc private func stopColima() {
-        (NSApp.delegate as? AppDelegate)?.showSuccess(L.t("Arrêt de Colima…", "Stopping Colima…"))
-        manager.stopColima(onTransition: { [weak self] state in
-            self?.update(state: state)
-        }, completion: { [weak self] result in
-            let appDelegate = NSApp.delegate as? AppDelegate
-            switch result {
-            case .success(let state):
-                self?.update(state: state)
-                self?.clearLastError()
-                appDelegate?.showSuccess(L.t("Colima arrêté", "Colima stopped"))
-            case .failure(let error):
-                appDelegate?.showError(error.localizedDescription)
-                self?.showLastError(error.localizedDescription)
-            }
-        })
-    }
-
-    @objc private func showAbout() {
-        NSApp.activate(ignoringOtherApps: true)
-        NSApp.orderFrontStandardAboutPanel(options: [
-            .credits: NSAttributedString(
-                string: L.t("Colima + Docker dans votre barre de menus.",
-                            "Colima + Docker in your menu bar."),
-                attributes: [
-                    .font: NSFont.systemFont(ofSize: 11),
-                    .foregroundColor: NSColor.secondaryLabelColor,
-                ]),
-        ])
-    }
-
-    @objc private func openPortainer() {
-        NSWorkspace.shared.open(URL(string: "https://localhost:9443")!)
-    }
-
-    @objc private func installPortainer() {
-        installPortainerItem.isEnabled = false
-        manager.installPortainer { [weak self] result in
-            self?.installPortainerItem.isEnabled = true
-            switch result {
-            case .success: NSWorkspace.shared.open(URL(string: "https://localhost:9443")!)
-            case .failure(let error):
-                (NSApp.delegate as? AppDelegate)?.showError(error.localizedDescription)
-                self?.showLastError(error.localizedDescription)
-            }
-        }
-    }
-
-    @objc private func openSettingsPanel() {
-        guard let button = statusItem.button else { return }
-        settingsPanelVC.isColimaRunning    = isColimaRunning
-        settingsPanelVC.isLoginItemEnabled = (NSApp.delegate as? AppDelegate)?.isLoginItemEnabled() ?? false
-        settingsPanelVC.syncControls()
-        if settingsPopover.isShown {
-            settingsPopover.close()
-        } else {
-            settingsPopover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
-        }
-    }
-
-    @objc private func pruneDocker() {
-        let alert = NSAlert()
-        alert.messageText     = L.t("Vider Docker", "Prune Docker")
-        alert.informativeText = L.t(
-            "Supprime les images, containers arrêtés et volumes non utilisés. Irréversible.",
-            "Removes stopped containers, unused images and volumes. Cannot be undone.")
-        alert.alertStyle = .warning
-        alert.addButton(withTitle: L.t("Vider", "Prune"))
-        alert.addButton(withTitle: L.t("Annuler", "Cancel"))
-        guard alert.runModal() == .alertFirstButtonReturn else { return }
-        pruneItem.isEnabled = false
-        manager.pruneDocker { [weak self] result in
-            self?.pruneItem.isEnabled = true
-            let appDelegate = NSApp.delegate as? AppDelegate
-            switch result {
-            case .success:
-                appDelegate?.showSuccess(L.t("Docker purgé avec succès", "Docker pruned successfully"))
-            case .failure(let error):
-                appDelegate?.showError(error.localizedDescription)
-            }
-        }
-    }
-
     private func detectContainerCrashes(prev: [DockerContainer], new: [DockerContainer]) {
         guard !prev.isEmpty else { return }
         let prevMap = Dictionary(uniqueKeysWithValues: prev.map { ($0.name, $0.state) })
@@ -609,70 +216,20 @@ final class StatusBarController {
             }
         }
     }
+}
 
-    private func restartWithNewConfig() {
-        manager.stopColima(onTransition: { [weak self] state in
-            self?.update(state: state)
-        }, completion: { [weak self] result in
-            guard let self else { return }
-            switch result {
-            case .success:
-                self.manager.startColima(onTransition: { [weak self] state in
-                    self?.update(state: state)
-                }, completion: { [weak self] result in
-                    switch result {
-                    case .success(let state):
-                        self?.update(state: state)
-                    case .failure(let error):
-                        (NSApp.delegate as? AppDelegate)?.showError(error.localizedDescription)
-                    }
-                })
-            case .failure(let error):
-                (NSApp.delegate as? AppDelegate)?.showError(error.localizedDescription)
-            }
-        })
-    }
-
-    @objc private func openContainersPanel() {
-        guard let button = statusItem.button else { return }
-        containersPanelVC.update(containers: lastState.containers, usage: lastState.usage,
-                                 containerStats: lastState.containerStats,
-                                 restartPolicies: lastState.restartPolicies)
-        if popover.isShown {
-            popover.close()
-        } else {
-            popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+extension StatusBarController: NSPopoverDelegate {
+    func popoverWillClose(_ notification: Notification) {
+        clearIconClickFlag()
+        guard let event = NSApp.currentEvent,
+              event.type == .leftMouseDown || event.type == .rightMouseDown,
+              let button = statusItem.button, event.window === button.window,
+              button.bounds.contains(button.convert(event.locationInWindow, from: nil)) else { return }
+        closedByIconClick = true
+        // The click's action fires during this mouse-up's dispatch; clear the flag right after.
+        clickMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseUp, .rightMouseUp]) { [weak self] event in
+            DispatchQueue.main.async { self?.clearIconClickFlag() }
+            return event
         }
-    }
-
-    private func openLogsTerminal(containerName name: String) {
-        logsWindowController.show(containerName: name, dockerPath: "/opt/homebrew/bin/docker")
-    }
-
-    private func openShellTerminal(containerName name: String, command: String) {
-        runInTerminal("docker exec -it \(name) \(command)")
-    }
-
-    private func runInTerminal(_ command: String) {
-        let script = "tell application \"Terminal\" to do script \"\(command)\""
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
-        process.arguments = ["-e", script]
-        try? process.run()
-    }
-
-    func showUpdateAvailable(version: String) {
-        updateItem.title = L.t(
-            "Mise à jour Colima \(version) disponible",
-            "Colima \(version) update available")
-        updateItem.isHidden = false
-    }
-
-    @objc private func upgradeColima() {
-        let script = "tell application \"Terminal\" to do script \"brew upgrade colima\""
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
-        process.arguments = ["-e", script]
-        try? process.run()
     }
 }

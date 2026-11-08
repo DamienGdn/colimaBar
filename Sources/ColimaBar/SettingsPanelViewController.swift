@@ -8,6 +8,9 @@ final class SettingsPanelViewController: NSViewController {
     var onToggleLoginItem: (() -> Void)?
     var onResizeDisk:      (() -> Void)?
 
+    /// The settings window shows its own instance picker and hides the free-text field.
+    var showsInstanceField = true
+
     var isColimaRunning    = false
     var isLoginItemEnabled = false
 
@@ -22,9 +25,12 @@ final class SettingsPanelViewController: NSViewController {
     private var pollingControl: NSSegmentedControl!
     private var compactCheck:   NSButton!
     private var resizeDiskBtn:  NSButton!
+    private var separators: [NSView] = []
 
     override func loadView() {
-        view = NSView(frame: NSRect(x: 0, y: 0, width: 420, height: 520))
+        let v = ThemedView(fill: Theme.Tokens.bg)
+        v.frame = NSRect(x: 0, y: 0, width: 420, height: 520)
+        view = v
     }
 
     override func viewDidLoad() {
@@ -35,7 +41,7 @@ final class SettingsPanelViewController: NSViewController {
 
     func syncControls() {
         guard isViewLoaded else { return }
-        instanceField.stringValue = ColimaConfig.activeInstanceName
+        instanceField?.stringValue = ColimaConfig.activeInstanceName
 
         let cpu  = ColimaConfig.desiredCPUs
         let mem  = ColimaConfig.desiredMemoryGB
@@ -80,7 +86,7 @@ final class SettingsPanelViewController: NSViewController {
         ])
 
         // Instance
-        outer.addArrangedSubview(header(L.t("Instance Colima", "Colima Instance")))
+        if showsInstanceField { outer.addArrangedSubview(header(L.t("Instance Colima", "Colima Instance"))) }
         instanceField = NSTextField()
         instanceField.placeholderString = "default"
         instanceField.controlSize       = .small
@@ -88,8 +94,10 @@ final class SettingsPanelViewController: NSViewController {
         instanceField.target            = self
         instanceField.action            = #selector(instanceChanged)
         instanceField.widthAnchor.constraint(equalToConstant: 200).isActive = true
-        outer.addArrangedSubview(instanceField)
-        outer.addArrangedSubview(sep())
+        if showsInstanceField {
+            outer.addArrangedSubview(instanceField)
+            outer.addArrangedSubview(sep())
+        }
 
         // Profiles
         outer.addArrangedSubview(header(L.t("Profils", "Profiles")))
@@ -153,19 +161,24 @@ final class SettingsPanelViewController: NSViewController {
             target: self, action: #selector(loginToggled))
         loginCheck.controlSize = .small
         outer.addArrangedSubview(loginCheck)
+
+        // Separators span the stack (leading alignment would otherwise collapse them).
+        for line in separators {
+            line.widthAnchor.constraint(equalTo: outer.widthAnchor, constant: -32).isActive = true
+        }
     }
 
     private func header(_ title: String) -> NSTextField {
-        let tf = NSTextField(labelWithString: title)
-        tf.font      = .boldSystemFont(ofSize: 11)
-        tf.textColor = .secondaryLabelColor
+        let tf = NSTextField(labelWithString: title.uppercased())
+        tf.font      = .systemFont(ofSize: 10.5, weight: .semibold)
+        tf.textColor = Theme.Tokens.text3
         return tf
     }
 
-    private func sep() -> NSBox {
-        let b = NSBox()
-        b.boxType = .separator
-        return b
+    private func sep() -> NSView {
+        let line = Theme.separator()
+        separators.append(line)
+        return line
     }
 
     private func seg(_ labels: [String], _ action: Selector) -> NSSegmentedControl {

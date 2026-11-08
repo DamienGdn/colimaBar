@@ -1,23 +1,25 @@
 // Sources/ColimaBar/DashboardWindowController.swift
 import AppKit
-import ColimaBarCore
+import SwiftUI
 
 final class DashboardWindowController: NSWindowController {
-    private let dashboardVC: DashboardViewController
-
-    init(manager: ColimaManager) {
-        dashboardVC = DashboardViewController()
-        dashboardVC.manager = manager
-
+    init(store: AppStore) {
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 900, height: 600),
-            styleMask: [.titled, .closable, .resizable, .miniaturizable],
+            contentRect: NSRect(x: 0, y: 0, width: 1180, height: 760),
+            styleMask: [.titled, .closable, .resizable, .miniaturizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
         window.title = "Colima Desktop"
+        // Brand header runs under a transparent title bar.
+        window.titlebarAppearsTransparent = true
+        window.titleVisibility = .hidden
+        window.isMovableByWindowBackground = true
+        window.minSize = NSSize(width: 900, height: 560)
+        window.contentViewController = NSHostingController(
+            rootView: DashboardRootView().environmentObject(store))
+        window.setContentSize(NSSize(width: 1180, height: 760))
         window.center()
-        window.contentViewController = dashboardVC
         super.init(window: window)
         window.delegate = self
     }
@@ -28,10 +30,6 @@ final class DashboardWindowController: NSWindowController {
         NSApp.activate(ignoringOtherApps: true)
         showWindow(nil)
         window?.makeKeyAndOrderFront(nil)
-    }
-
-    func update(state: ColimaAppState) {
-        dashboardVC.update(state: state)
     }
 }
 

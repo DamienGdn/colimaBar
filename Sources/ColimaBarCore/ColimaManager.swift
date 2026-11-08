@@ -3,7 +3,7 @@ import Foundation
 public final class ColimaManager {
     private let shell: ShellRunner
     private let colimaPath: String
-    private let dockerPath: String
+    public let dockerPath: String
 
     public var onStateChange: ((ColimaAppState) -> Void)?
     private var timer: DispatchSourceTimer?
@@ -295,6 +295,7 @@ public final class ColimaManager {
                 colima: base.colima,
                 cpus: base.cpus,
                 memoryGB: base.memoryGB,
+                diskGB: base.diskGB,
                 portainerExists: base.portainerExists,
                 usage: base.usage,
                 containers: base.containers,
@@ -371,6 +372,49 @@ public final class ColimaManager {
             } else {
                 let msg = result.error.isEmpty
                     ? "\(L.t("Impossible d'arrêter", "Failed to stop")) \(name)"
+                    : result.error
+                DispatchQueue.main.async { completion(.failure(ShellError(message: msg))) }
+            }
+        }
+    }
+
+    public func removeContainer(_ name: String, force: Bool, completion: @escaping (Result<Void, Error>) -> Void) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            let args = force ? ["rm", "-f", name] : ["rm", name]
+            let result = self.shell.run(self.dockerPath, args: args)
+            if result.exitCode == 0 {
+                DispatchQueue.main.async { completion(.success(())) }
+            } else {
+                let msg = result.error.isEmpty
+                    ? "\(L.t("Impossible de supprimer", "Failed to remove")) \(name)"
+                    : result.error
+                DispatchQueue.main.async { completion(.failure(ShellError(message: msg))) }
+            }
+        }
+    }
+
+    public func pruneImages(completion: @escaping (Result<String, Error>) -> Void) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            let result = self.shell.run(self.dockerPath, args: ["image", "prune", "-f"])
+            if result.exitCode == 0 {
+                DispatchQueue.main.async { completion(.success(result.output)) }
+            } else {
+                let msg = result.error.isEmpty
+                    ? L.t("Échec du nettoyage des images", "Failed to prune images")
+                    : result.error
+                DispatchQueue.main.async { completion(.failure(ShellError(message: msg))) }
+            }
+        }
+    }
+
+    public func inspectContainer(_ name: String, completion: @escaping (Result<String, Error>) -> Void) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            let result = self.shell.run(self.dockerPath, args: ["inspect", name])
+            if result.exitCode == 0 {
+                DispatchQueue.main.async { completion(.success(result.output)) }
+            } else {
+                let msg = result.error.isEmpty
+                    ? "\(L.t("Impossible d'inspecter", "Failed to inspect")) \(name)"
                     : result.error
                 DispatchQueue.main.async { completion(.failure(ShellError(message: msg))) }
             }
@@ -609,6 +653,7 @@ public final class ColimaManager {
             colima: isRunning ? .running : .stopped,
             cpus: entry.cpus,
             memoryGB: memoryGB,
+            diskGB: entry.disk.map { Double($0) / 1_073_741_824 },
             portainerExists: portainerExists,
             usage: usage,
             containerStats: containerStats,

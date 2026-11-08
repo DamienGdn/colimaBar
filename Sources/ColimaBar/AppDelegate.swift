@@ -5,28 +5,23 @@ import ColimaBarCore
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var manager: ColimaManager!
+    private(set) var store: AppStore!
     var statusBarController: StatusBarController!
     var dashboardWindowController: DashboardWindowController!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         requestNotificationPermission()
         manager = ColimaManager()
-        statusBarController = StatusBarController(manager: manager)
-        dashboardWindowController = DashboardWindowController(manager: manager)
-        statusBarController.onStateUpdate = { [weak self] state in
-            self?.dashboardWindowController.update(state: state)
-        }
+        store = AppStore(manager: manager)
+        statusBarController = StatusBarController(store: store)
+        dashboardWindowController = DashboardWindowController(store: store)
         manager.startPolling()
         if ColimaConfig.autoStartOnLaunch {
-            manager.startColima(onTransition: { [weak self] state in
-                self?.statusBarController.update(state: state)
-            }, completion: { [weak self] _ in
-                _ = self
-            })
+            store.startColima(silent: true)
         }
         manager.checkForColimaUpdate { [weak self] newVersion in
             guard let version = newVersion else { return }
-            self?.statusBarController.showUpdateAvailable(version: version)
+            self?.store.updateVersion = version
         }
     }
 
@@ -58,6 +53,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         content.sound = .default
         let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
         UNUserNotificationCenter.current().add(request)
+    }
+
+    func showAbout() {
+        NSApp.activate(ignoringOtherApps: true)
+        NSApp.orderFrontStandardAboutPanel(options: [
+            .credits: NSAttributedString(
+                string: L.t("Colima + Docker dans votre barre de menus.",
+                            "Colima + Docker in your menu bar."),
+                attributes: [
+                    .font: NSFont.systemFont(ofSize: 11),
+                    .foregroundColor: NSColor.secondaryLabelColor,
+                ]),
+        ])
     }
 
     // MARK: - Login item

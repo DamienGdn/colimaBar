@@ -79,3 +79,30 @@ public final class DockerComposeService {
         }
     }
 }
+
+/// Decides what the compose editor shows after the project list or the loaded project changes.
+public enum ComposeEditorPlan {
+    public struct Result: Equatable {
+        /// Picker entries, sorted; may include the loaded project after it disappeared ("detached").
+        public let entries: [ComposeProject]
+        /// Project to select; nil means the empty state.
+        public let selection: ComposeProject?
+        /// Whether the selected project's file must be (re)loaded into the editor.
+        public let reload: Bool
+    }
+
+    public static func reconcile(available: [ComposeProject],
+                                 loaded: ComposeProject?,
+                                 dirty: Bool) -> Result {
+        let sorted = available.sorted { $0.name < $1.name }
+        if let loaded, sorted.contains(loaded) {
+            return Result(entries: sorted, selection: loaded, reload: false)
+        }
+        if let loaded, dirty {
+            // Unsaved edits: keep the project and its text until the user saves or discards.
+            let entries = (sorted + [loaded]).sorted { $0.name < $1.name }
+            return Result(entries: entries, selection: loaded, reload: false)
+        }
+        return Result(entries: sorted, selection: sorted.first, reload: sorted.first != nil)
+    }
+}
