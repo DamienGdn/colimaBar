@@ -320,13 +320,18 @@ final class AppStore: ObservableObject {
 
     // MARK: - Portainer / upgrade
 
-    func installPortainer(completion: (() -> Void)? = nil) {
+    /// `completion(true)` on success (state refresh already requested), `false` on failure.
+    func installPortainer(completion: ((Bool) -> Void)? = nil) {
         manager.installPortainer { [weak self] result in
             switch result {
-            case .success: self?.openPortainer()
-            case .failure(let error): self?.fail(error)
+            case .success:
+                self?.openPortainer()
+                self?.refresh()
+                completion?(true)
+            case .failure(let error):
+                self?.fail(error)
+                completion?(false)
             }
-            completion?()
         }
     }
 

@@ -2,6 +2,10 @@ import Foundation
 
 print("Running ColimaBar tests...\n")
 
+test_breathing_startsOpaque()
+test_breathing_minAtHalfPeriod()
+test_breathing_periodic()
+test_breathing_bounds()
 test_parseListJSON_running()
 test_parseListJSON_stopped()
 test_parseListJSON_invalid_returnsNil()

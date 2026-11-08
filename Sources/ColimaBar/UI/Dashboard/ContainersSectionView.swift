@@ -64,7 +64,7 @@ struct ContainersSectionView: View {
             } else {
                 Button {
                     busy = true
-                    store.installPortainer { busy = false }
+                    store.installPortainer { ok in if !ok { busy = false } }
                 } label: {
                     Label(L.t("Installer Portainer", "Install Portainer"), systemImage: "arrow.down.circle")
                 }

@@ -79,7 +79,8 @@ struct StatusPopoverView: View {
                                   action: L.t("Installer Portainer", "Install Portainer"),
                                   busy: installingPortainer) {
                         installingPortainer = true
-                        store.installPortainer { installingPortainer = false }
+                        // On success stay busy until the refreshed state hides the banner.
+                        store.installPortainer { ok in if !ok { installingPortainer = false } }
                     }
                 }
                 if let version = store.updateVersion {
@@ -198,6 +199,7 @@ struct StatusPopoverView: View {
                 }
                 Divider()
                 Button(L.t("Quitter", "Quit")) { NSApp.terminate(nil) }
+                    .keyboardShortcut("q")
             } label: {
                 Image(systemName: "gearshape.fill").foregroundColor(.tkText2)
             }

@@ -11,8 +11,14 @@ final class StatusBarController: NSObject {
     private var statusItem: NSStatusItem!
     private let popover = NSPopover()
     private var lastState: ColimaAppState = .unknown
-    /// When the transient popover last closed: a click on the icon that closed it must not reopen it.
-    private var lastPopoverClose = Date.distantPast
+    /// Set when the transient popover was closed by a mouse-down on the status icon: the action
+    /// of that same click (fired on mouse-up) must not reopen it. Consumed by the next toggle,
+    /// or cleared right after the click's mouse-up if no toggle follows (e.g. drag off the icon).
+    private var closedByIconClick = false
+    private var clickMonitor: Any?
+    private var breathTimer: Timer?
+    private var breathStart = Date()
+    private var currentBadgeColor: NSColor?
     private var consecutiveHighCPU = 0
     private var consecutiveHighRAM = 0
 
@@ -53,7 +59,11 @@ final class StatusBarController: NSObject {
             return
         }
         // The transient popover closes on mouse-down outside it, before this action runs.
-        guard Date().timeIntervalSince(lastPopoverClose) > 0.3, let button = statusItem.button else { return }
+        if closedByIconClick {
+            closedByIconClick = false
+            return
+        }
+        guard let button = statusItem.button else { return }
         NSApp.activate(ignoringOtherApps: true)
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
         popover.contentViewController?.view.window?.makeKey()
@@ -100,7 +110,13 @@ final class StatusBarController: NSObject {
         case .transitioning:     badgeColor = Theme.Status.transitioning
         case .stopped, .unknown: badgeColor = nil   // dimmed glyph, no badge
         }
-        button.image = colimaIcon(badgeColor: badgeColor)
+        currentBadgeColor = badgeColor
+        if case .transitioning = colima {
+            startBreathing()
+        } else {
+            stopBreathing()
+            button.image = colimaIcon(badgeColor: badgeColor)
+        }
         button.toolTip = "ColimaBar"
 
         if ColimaConfig.compactModeEnabled, case .running = colima {
@@ -113,16 +129,43 @@ final class StatusBarController: NSObject {
         }
     }
 
+    // MARK: - Breathing icon
+
+    /// Starts the ~15 fps redraw timer (no-op if already running); only used while transitioning.
+    private func startBreathing() {
+        guard breathTimer == nil else { return }
+        breathStart = Date()
+        redrawBreathingIcon()
+        let timer = Timer(timeInterval: 1.0 / 15.0, repeats: true) { [weak self] _ in
+            self?.redrawBreathingIcon()
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        breathTimer = timer
+    }
+
+    private func stopBreathing() {
+        breathTimer?.invalidate()
+        breathTimer = nil
+    }
+
+    private func redrawBreathingIcon() {
+        let alpha = BreathingCurve.alpha(at: Date().timeIntervalSince(breathStart))
+        statusItem.button?.image = colimaIcon(badgeColor: currentBadgeColor, glyphAlpha: alpha)
+    }
+
+    deinit { breathTimer?.invalidate() }
+
     /// Menu bar icon: the llama glyph tinted with the menu bar label color,
     /// dimmed when Colima is stopped, with a colored status badge otherwise.
-    private func colimaIcon(badgeColor: NSColor?) -> NSImage {
+    /// `glyphAlpha` (breathing) scales the glyph only; the badge stays fully opaque.
+    private func colimaIcon(badgeColor: NSColor?, glyphAlpha: Double = 1.0) -> NSImage {
         let base = NSImage(named: "colimabar")
             ?? NSImage(systemSymbolName: "shippingbox.fill", accessibilityDescription: "Colima Desktop")!
         let size = NSSize(width: 22, height: 22)
         let result = NSImage(size: size, flipped: false) { rect in
             // Glyph in labelColor (adapts to dark/light menu bar)
             base.draw(in: rect, from: .zero, operation: .sourceOver,
-                      fraction: badgeColor == nil ? 0.55 : 1.0)
+                      fraction: badgeColor == nil ? 0.55 : CGFloat(glyphAlpha))
             NSColor.labelColor.set()
             rect.fill(using: .sourceAtop)
 
@@ -162,7 +205,21 @@ final class StatusBarController: NSObject {
 }
 
 extension StatusBarController: NSPopoverDelegate {
-    func popoverDidClose(_ notification: Notification) {
-        lastPopoverClose = Date()
+    func popoverWillClose(_ notification: Notification) {
+        closedByIconClick = false
+        if let monitor = clickMonitor { NSEvent.removeMonitor(monitor); clickMonitor = nil }
+        guard let event = NSApp.currentEvent,
+              event.type == .leftMouseDown || event.type == .rightMouseDown,
+              let button = statusItem.button, event.window === button.window,
+              button.bounds.contains(button.convert(event.locationInWindow, from: nil)) else { return }
+        closedByIconClick = true
+        // The click's action fires during this mouse-up's dispatch; clear the flag right after.
+        clickMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseUp, .rightMouseUp]) { [weak self] event in
+            DispatchQueue.main.async {
+                self?.closedByIconClick = false
+                if let monitor = self?.clickMonitor { NSEvent.removeMonitor(monitor); self?.clickMonitor = nil }
+            }
+            return event
+        }
     }
 }
