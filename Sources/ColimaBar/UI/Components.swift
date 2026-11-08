@@ -242,3 +242,13 @@ struct MetricText: View {
         Text(value.map(format) ?? "—").monospacedDigit()
     }
 }
+
+extension ColimaAppState {
+    /// "default · 4 CPU · 8 GB · 60 GB disk" (dashboard header and status popover).
+    var profileSummary: String {
+        let cpus = cpus.map { "\($0)" } ?? "—"
+        let mem = memoryGB.map { String(format: "%.0f", $0) } ?? "—"
+        let disk = diskGB.map { String(format: "%.0f", $0) } ?? "\(ColimaConfig.desiredDiskGB)"
+        return "\(ColimaConfig.activeInstanceName) · \(cpus) CPU · \(mem) GB · \(disk) GB disk"
+    }
+}

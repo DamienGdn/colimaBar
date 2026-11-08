@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-/// Shared visual helpers: SF Symbols, status dots and brand colors.
+/// Shared visual helpers: brand colors, design tokens and AppKit styling helpers.
 enum Theme {
 
     /// Brand palette (matches design/AppIcon.svg).
@@ -62,46 +62,10 @@ enum Theme {
         static let redSoft     = dynamic(hex(0xD93A3A, 0.12), hex(0xFF6B6B, 0.14))
     }
 
-    /// Semantic status colors used across the menu, icon and tables.
+    /// Status badge colors of the menu bar icon.
     enum Status {
-        static let running      = NSColor.systemGreen
+        static let running       = NSColor.systemGreen
         static let transitioning = NSColor.systemOrange
-        static let stopped      = NSColor.tertiaryLabelColor
-        static let warning      = NSColor.systemOrange
-    }
-
-    /// SF Symbol sized for menus and small buttons. Returns nil if the symbol
-    /// is unavailable on the running macOS version.
-    static func symbol(_ name: String,
-                       _ description: String? = nil,
-                       pointSize: CGFloat = 13,
-                       weight: NSFont.Weight = .regular) -> NSImage? {
-        guard let image = NSImage(systemSymbolName: name, accessibilityDescription: description) else {
-            return nil
-        }
-        let config = NSImage.SymbolConfiguration(pointSize: pointSize, weight: weight)
-        return image.withSymbolConfiguration(config) ?? image
-    }
-
-    /// Small filled circle used as a colored status indicator in menus.
-    static func statusDot(_ color: NSColor, diameter: CGFloat = 8) -> NSImage {
-        let size = NSSize(width: diameter, height: diameter)
-        let image = NSImage(size: size, flipped: false) { rect in
-            color.setFill()
-            NSBezierPath(ovalIn: rect.insetBy(dx: 0.5, dy: 0.5)).fill()
-            return true
-        }
-        image.isTemplate = false
-        return image
-    }
-}
-
-extension NSMenuItem {
-    /// Attaches an SF Symbol to the item and returns it (for fluent setup).
-    @discardableResult
-    func withSymbol(_ name: String) -> NSMenuItem {
-        image = Theme.symbol(name, title)
-        return self
     }
 }
 

@@ -7,13 +7,6 @@ struct HeaderView: View {
 
     private var state: ColimaAppState { store.state }
 
-    private var subtitle: String {
-        let cpus = state.cpus.map { "\($0)" } ?? "—"
-        let mem = state.memoryGB.map { String(format: "%.0f", $0) } ?? "—"
-        let disk = state.diskGB.map { String(format: "%.0f", $0) } ?? "\(ColimaConfig.desiredDiskGB)"
-        return "\(ColimaConfig.activeInstanceName) · \(cpus) CPU · \(mem) GB · \(disk) GB disk"
-    }
-
     private var isRunning: Bool { if case .running = state.colima { return true } else { return false } }
     private var isTransitioning: Bool { if case .transitioning = state.colima { return true } else { return false } }
 
@@ -22,7 +15,7 @@ struct HeaderView: View {
             BrandLogo(size: 38)
             VStack(alignment: .leading, spacing: 2) {
                 BrandWordmark(size: 20)
-                Text(subtitle)
+                Text(state.profileSummary)
                     .font(.system(size: 11.5)).foregroundColor(.white.opacity(0.7)).lineLimit(1)
             }
             Spacer(minLength: 12)

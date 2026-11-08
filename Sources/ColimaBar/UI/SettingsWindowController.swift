@@ -46,9 +46,11 @@ final class SettingsWindowController: NSWindowController {
     private func rebuildContent(store: AppStore) {
         let content = SettingsContentViewController(store: store) { [weak self] in
             guard let self, let store = self.store else { return }
-            // Language changed: rebuild with the new strings.
+            // Language changed: rebuild with the new strings, and re-render the SwiftUI
+            // views (dashboard, status popover) that read `L.t` in their body.
             self.window?.title = L.t("Réglages", "Settings")
             self.rebuildContent(store: store)
+            store.objectWillChange.send()
         }
         self.content = content
         window?.contentViewController = content
