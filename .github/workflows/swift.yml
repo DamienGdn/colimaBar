@@ -1,0 +1,22 @@
+name: CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    name: Build & test
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build (release)
+        run: swift build -c release
+
+      # Tests use a custom runner (no XCTest), so `swift test` would find nothing.
+      - name: Run tests
+        run: swift run ColimaBarTests

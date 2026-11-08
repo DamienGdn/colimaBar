@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ColimaBar</title>
+  <link rel="stylesheet" href="styles.css">
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <img src="assets/logo.svg" alt="" width="34" height="34">
+      <div>
+        <div class="brand-name">Colima<span>Bar</span></div>
+        <div class="brand-sub" id="engine-sub"></div>
+      </div>
+    </div>
+    <div id="status-pill" class="pill"></div>
+    <div class="meters" id="meters"></div>
+    <div class="top-actions">
+      <button class="btn primary" id="engine-btn" hidden></button>
+      <button class="btn icon-only" id="refresh-btn"></button>
+      <button class="btn icon-only" id="settings-btn"></button>
+    </div>
+  </header>
+
+  <nav class="tabs" id="tabs" role="tablist"></nav>
+
+  <main class="content">
+    <section class="list-pane">
+      <div class="toolbar" id="toolbar"></div>
+      <div class="table-wrap" id="table-wrap"></div>
+    </section>
+    <aside class="detail" id="detail"></aside>
+  </main>
+
+  <div class="modal-backdrop" id="modal" hidden>
+    <div class="modal" role="dialog" aria-modal="true">
+      <div class="modal-head">
+        <h2 id="modal-title"></h2>
+        <div class="modal-tools" id="modal-tools"></div>
+        <button class="btn icon-only ghost" id="modal-close"></button>
+      </div>
+      <div class="modal-body" id="modal-body"></div>
+      <div class="modal-foot" id="modal-foot"></div>
+    </div>
+  </div>
+
+  <div class="toasts" id="toasts" aria-live="polite"></div>
+</body>
+</html>

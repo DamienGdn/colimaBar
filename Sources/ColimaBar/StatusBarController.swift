@@ -163,46 +163,53 @@ final class StatusBarController {
         resourcesItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
         resourcesItem.isEnabled = false
         resourcesItem.isHidden = true
+        resourcesItem.withSymbol("cpu")
         menu.addItem(resourcesItem)
 
         usageItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
         usageItem.isEnabled = false
         usageItem.isHidden = true
+        usageItem.withSymbol("chart.bar")
         menu.addItem(usageItem)
 
         lastErrorItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
         lastErrorItem.isEnabled = false
         lastErrorItem.isHidden = true
+        lastErrorItem.withSymbol("exclamationmark.triangle")
         menu.addItem(lastErrorItem)
 
         menu.addItem(NSMenuItem.separator())
 
         // Colima actions
         startItem = NSMenuItem(
-            title: L.t("▶ Démarrer Colima", "▶ Start Colima"),
+            title: L.t("Démarrer Colima", "Start Colima"),
             action: #selector(startColima), keyEquivalent: "")
         startItem.target = self
+        startItem.withSymbol("play.fill")
         menu.addItem(startItem)
 
         stopItem = NSMenuItem(
-            title: L.t("■ Arrêter Colima", "■ Stop Colima"),
+            title: L.t("Arrêter Colima", "Stop Colima"),
             action: #selector(stopColima), keyEquivalent: "")
         stopItem.target = self
+        stopItem.withSymbol("stop.fill")
         menu.addItem(stopItem)
 
         let dashboardItem = NSMenuItem(
-            title: L.t("📊 Ouvrir le Dashboard", "📊 Open Dashboard"),
+            title: L.t("Ouvrir le Dashboard", "Open Dashboard"),
             action: #selector(openDashboard),
             keyEquivalent: "d")
         dashboardItem.target = self
+        dashboardItem.withSymbol("rectangle.grid.2x2")
         menu.addItem(dashboardItem)
 
         menu.addItem(NSMenuItem.separator())
 
         // Portainer
         portainerWarningItem = NSMenuItem(
-            title: L.t("⚠ Portainer non installé", "⚠ Portainer not installed"),
+            title: L.t("Portainer non installé", "Portainer not installed"),
             action: nil, keyEquivalent: "")
+        portainerWarningItem.withSymbol("exclamationmark.triangle")
         portainerWarningItem.isEnabled = false
         portainerWarningItem.isHidden = true
         menu.addItem(portainerWarningItem)
@@ -211,6 +218,7 @@ final class StatusBarController {
             title: L.t("Installer Portainer…", "Install Portainer…"),
             action: #selector(installPortainer), keyEquivalent: "")
         installPortainerItem.target = self
+        installPortainerItem.withSymbol("arrow.down.circle")
         installPortainerItem.isHidden = true
         menu.addItem(installPortainerItem)
 
@@ -218,6 +226,7 @@ final class StatusBarController {
             title: L.t("Ouvrir Portainer", "Open Portainer"),
             action: #selector(openPortainer), keyEquivalent: "")
         openPortainerItem.target = self
+        openPortainerItem.withSymbol("safari")
         openPortainerItem.isHidden = true
         menu.addItem(openPortainerItem)
 
@@ -228,19 +237,22 @@ final class StatusBarController {
             action: #selector(openContainersPanel),
             keyEquivalent: "")
         containersItem.target = self
+        containersItem.withSymbol("shippingbox")
         containersItem.isHidden = true
         menu.addItem(containersItem)
 
         pruneItem = NSMenuItem(
-            title: L.t("🗑 Vider Docker…", "🗑 Prune Docker…"),
+            title: L.t("Vider Docker…", "Prune Docker…"),
             action: #selector(pruneDocker),
             keyEquivalent: "")
         pruneItem.target = self
+        pruneItem.withSymbol("trash")
         pruneItem.isHidden = true
         menu.addItem(pruneItem)
 
         updateItem = NSMenuItem(title: "", action: #selector(upgradeColima), keyEquivalent: "")
         updateItem.target = self
+        updateItem.withSymbol("arrow.triangle.2.circlepath")
         updateItem.isHidden = true
         menu.addItem(updateItem)
 
@@ -248,21 +260,32 @@ final class StatusBarController {
 
         let instanceItem = NSMenuItem(title: L.t("Instance", "Instance"), action: nil, keyEquivalent: "")
         instanceItem.submenu = NSMenu()
+        instanceItem.withSymbol("square.stack.3d.up")
         instanceSubmenuItem  = instanceItem
         menu.addItem(instanceItem)
 
         let settingsItem = NSMenuItem(
-            title: "⚙ \(L.t("Paramètres", "Settings")) →",
+            title: L.t("Paramètres…", "Settings…"),
             action: #selector(openSettingsPanel),
-            keyEquivalent: "")
+            keyEquivalent: ",")
         settingsItem.target = self
+        settingsItem.withSymbol("gearshape")
         menu.addItem(settingsItem)
+
+        let aboutItem = NSMenuItem(
+            title: L.t("À propos de ColimaBar", "About ColimaBar"),
+            action: #selector(showAbout),
+            keyEquivalent: "")
+        aboutItem.target = self
+        aboutItem.withSymbol("info.circle")
+        menu.addItem(aboutItem)
 
         menu.addItem(NSMenuItem.separator())
 
         quitItem = NSMenuItem(
             title: L.t("Quitter", "Quit"),
             action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        quitItem.withSymbol("power")
         menu.addItem(quitItem)
     }
 
@@ -313,13 +336,14 @@ final class StatusBarController {
 
     private func updateIcon(colima: ColimaRunningState) {
         guard let button = statusItem.button else { return }
-        let bubbleColor: NSColor
+        let badgeColor: NSColor?
         switch colima {
-        case .running:           bubbleColor = .systemGreen
-        case .stopped, .unknown: bubbleColor = .white
-        case .transitioning:     bubbleColor = .systemOrange
+        case .running:           badgeColor = Theme.Status.running
+        case .transitioning:     badgeColor = Theme.Status.transitioning
+        case .stopped, .unknown: badgeColor = nil   // dimmed glyph, no badge
         }
-        button.image = colimaIcon(bubbleColor: bubbleColor)
+        button.image = colimaIcon(badgeColor: badgeColor)
+        button.toolTip = "ColimaBar"
 
         if ColimaConfig.compactModeEnabled, case .running = colima {
             let running = lastState.containers.filter { $0.isRunning }.count
@@ -331,32 +355,36 @@ final class StatusBarController {
         }
     }
 
-    private func colimaIcon(bubbleColor: NSColor) -> NSImage {
+    /// Menu bar icon: the llama glyph tinted with the menu bar label color,
+    /// dimmed when Colima is stopped, with a colored status badge otherwise.
+    private func colimaIcon(badgeColor: NSColor?) -> NSImage {
         let base = NSImage(named: "colimabar")
             ?? NSImage(systemSymbolName: "shippingbox.fill", accessibilityDescription: "Colima Desktop")!
         let size = NSSize(width: 22, height: 22)
         let result = NSImage(size: size, flipped: false) { rect in
-            // Llama in neutral labelColor (adapts dark/light menu bar)
-            let llamaRect = rect
-            base.draw(in: llamaRect)
+            // Glyph in labelColor (adapts to dark/light menu bar)
+            base.draw(in: rect, from: .zero, operation: .sourceOver,
+                      fraction: badgeColor == nil ? 0.55 : 1.0)
             NSColor.labelColor.set()
-            llamaRect.fill(using: .sourceAtop)
+            rect.fill(using: .sourceAtop)
 
-            // Status bubble — bottom-right corner
+            guard let badgeColor else { return true }
+
+            // Status badge — bottom-right corner
             let d: CGFloat = 7
-            let bubble = NSRect(x: rect.width - d - 1, y: 1, width: d, height: d)
+            let badge = NSRect(x: rect.width - d - 0.5, y: 0.5, width: d, height: d)
 
-            // White border for contrast on any background
-            NSColor.white.set()
-            NSBezierPath(ovalIn: bubble.insetBy(dx: -1.5, dy: -1.5)).fill()
+            // Knock out a transparent ring so the badge reads on any background
+            NSGraphicsContext.current?.compositingOperation = .clear
+            NSBezierPath(ovalIn: badge.insetBy(dx: -1.5, dy: -1.5)).fill()
+            NSGraphicsContext.current?.compositingOperation = .sourceOver
 
-            // Colored fill
-            bubbleColor.set()
-            NSBezierPath(ovalIn: bubble).fill()
-
+            badgeColor.setFill()
+            NSBezierPath(ovalIn: badge).fill()
             return true
         }
         result.isTemplate = false
+        result.accessibilityDescription = "ColimaBar"
         return result
     }
 
@@ -370,24 +398,26 @@ final class StatusBarController {
         let transitioning: Bool
         if case .transitioning(let msg) = state.colima {
             colimaStatusItem.title = "Colima : \(msg)"
+            colimaStatusItem.image = Theme.statusDot(Theme.Status.transitioning)
             transitioning = true
         } else {
             colimaStatusItem.title = running
-                ? "● \(L.t("Colima : En cours d'exécution", "Colima: Running"))"
-                : "○ \(L.t("Colima : Arrêté", "Colima: Stopped"))"
+                ? L.t("Colima : En cours d'exécution", "Colima: Running")
+                : L.t("Colima : Arrêté", "Colima: Stopped")
+            colimaStatusItem.image = Theme.statusDot(running ? Theme.Status.running : .tertiaryLabelColor)
             transitioning = false
         }
 
         if let cpus = state.cpus, let mem = state.memoryGB {
             let label = L.t("Mémoire allouée", "Allocated memory")
-            resourcesItem.title = String(format: "   CPUs: %d  |  \(label): %.0f GB", cpus, mem)
+            resourcesItem.title = String(format: "CPUs: %d  ·  \(label): %.0f GB", cpus, mem)
             resourcesItem.isHidden = false
         } else {
             resourcesItem.isHidden = true
         }
 
         if let u = state.usage {
-            usageItem.title = String(format: "   CPU: %.1f%%  |  RAM: %@ / %.1f GB (%.0f%%)",
+            usageItem.title = String(format: "CPU: %.1f%%  ·  RAM: %@ / %.1f GB (%.0f%%)",
                                      u.cpuPercent, u.memUsedFormatted, u.memTotalGiB, u.memUsedPercent)
             usageItem.isHidden = false
         } else {
@@ -413,7 +443,7 @@ final class StatusBarController {
             return
         }
         let running = containers.filter { $0.isRunning }.count
-        containersItem.title = "\(running)/\(containers.count) \(L.t("containers", "containers")) →"
+        containersItem.title = "\(running)/\(containers.count) \(L.t("containers", "containers"))…"
         containersItem.isHidden = false
         if popover?.isShown == true {
             containersPanelVC.update(containers: containers, usage: lastState.usage,
@@ -443,7 +473,7 @@ final class StatusBarController {
     }
 
     func showLastError(_ message: String) {
-        lastErrorItem.title = "⚠ \(message.prefix(80))"
+        lastErrorItem.title = String(message.prefix(80))
         lastErrorItem.isHidden = false
     }
 
@@ -499,6 +529,19 @@ final class StatusBarController {
                 self?.showLastError(error.localizedDescription)
             }
         })
+    }
+
+    @objc private func showAbout() {
+        NSApp.activate(ignoringOtherApps: true)
+        NSApp.orderFrontStandardAboutPanel(options: [
+            .credits: NSAttributedString(
+                string: L.t("Colima + Docker dans votre barre de menus.",
+                            "Colima + Docker in your menu bar."),
+                attributes: [
+                    .font: NSFont.systemFont(ofSize: 11),
+                    .foregroundColor: NSColor.secondaryLabelColor,
+                ]),
+        ])
     }
 
     @objc private func openPortainer() {
@@ -620,8 +663,8 @@ final class StatusBarController {
 
     func showUpdateAvailable(version: String) {
         updateItem.title = L.t(
-            "🔄 Mise à jour Colima \(version) disponible",
-            "🔄 Colima \(version) update available")
+            "Mise à jour Colima \(version) disponible",
+            "Colima \(version) update available")
         updateItem.isHidden = false
     }
 

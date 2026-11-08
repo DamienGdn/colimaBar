@@ -362,12 +362,12 @@ final class ContainersPanelViewController: NSViewController {
         ])
 
         // Action buttons
-        startBtn   = makeBtn(L.t("▶ Démarrer", "▶ Start"),   #selector(startAction))
-        stopBtn    = makeBtn(L.t("■ Arrêter",  "■ Stop"),     #selector(stopAction))
-        restartBtn = makeBtn(L.t("↺ Restart",  "↺ Restart"), #selector(restartAction))
-        logsBtn    = makeBtn(L.t("Logs", "Logs"),             #selector(logsAction))
-        shellBtn   = makeBtn(L.t("Shell", "Shell"),           #selector(shellAction))
-        envBtn     = makeBtn(L.t("Env", "Env"),               #selector(envAction))
+        startBtn   = makeBtn(L.t("Démarrer", "Start"),      symbol: "play.fill",             #selector(startAction))
+        stopBtn    = makeBtn(L.t("Arrêter",  "Stop"),       symbol: "stop.fill",             #selector(stopAction))
+        restartBtn = makeBtn(L.t("Redémarrer", "Restart"),  symbol: "arrow.clockwise",       #selector(restartAction))
+        logsBtn    = makeBtn(L.t("Logs", "Logs"),           symbol: "text.alignleft",        #selector(logsAction))
+        shellBtn   = makeBtn(L.t("Shell…", "Shell…"),       symbol: "terminal",              #selector(shellAction))
+        envBtn     = makeBtn(L.t("Env", "Env"),             symbol: "list.bullet.rectangle", #selector(envAction))
 
         let btnStack = NSStackView(views: [startBtn, stopBtn, restartBtn, logsBtn, shellBtn, envBtn])
         btnStack.orientation  = .horizontal
@@ -450,8 +450,8 @@ final class ContainersPanelViewController: NSViewController {
         pullField.placeholderString = "nginx:latest"
         pullField.controlSize       = .small
 
-        pullBtn        = makeBtn(L.t("Pull", "Pull"),           #selector(pullAction))
-        deleteImageBtn = makeBtn(L.t("Supprimer", "Delete"),    #selector(deleteImageAction))
+        pullBtn        = makeBtn(L.t("Pull", "Pull"),        symbol: "arrow.down.circle", #selector(pullAction))
+        deleteImageBtn = makeBtn(L.t("Supprimer", "Delete"), symbol: "trash",             #selector(deleteImageAction))
         deleteImageBtn.isEnabled = false
 
         pullSpinner = NSProgressIndicator()
@@ -527,7 +527,7 @@ final class ContainersPanelViewController: NSViewController {
         volumesScrollView.translatesAutoresizingMaskIntoConstraints = false
         volumesContentView.addSubview(volumesScrollView)
 
-        pruneVolumesBtn = makeBtn(L.t("🗑 Vider les volumes…", "🗑 Prune volumes…"),
+        pruneVolumesBtn = makeBtn(L.t("Vider les volumes…", "Prune volumes…"), symbol: "trash",
                                   #selector(pruneVolumesAction))
         pruneVolumesBtn.translatesAutoresizingMaskIntoConstraints = false
         volumesContentView.addSubview(pruneVolumesBtn)
@@ -584,7 +584,7 @@ final class ContainersPanelViewController: NSViewController {
         networksScrollView.translatesAutoresizingMaskIntoConstraints = false
         networksContentView.addSubview(networksScrollView)
 
-        pruneNetworksBtn = makeBtn(L.t("🗑 Purger réseaux…", "🗑 Prune networks…"),
+        pruneNetworksBtn = makeBtn(L.t("Purger les réseaux…", "Prune networks…"), symbol: "trash",
                                    #selector(pruneNetworksAction))
         pruneNetworksBtn.translatesAutoresizingMaskIntoConstraints = false
         networksContentView.addSubview(pruneNetworksBtn)
@@ -720,12 +720,12 @@ final class ContainersPanelViewController: NSViewController {
         ])
 
         // Action bar
-        cmpStartBtn   = makeBtn(L.t("▶ Démarrer", "▶ Start"),   #selector(cmpStartAction))
-        cmpStopBtn    = makeBtn(L.t("■ Arrêter",   "■ Stop"),    #selector(cmpStopAction))
-        cmpRestartBtn = makeBtn(L.t("↺ Restart",   "↺ Restart"), #selector(cmpRestartAction))
-        cmpLogsBtn    = makeBtn(L.t("Logs",        "Logs"),       #selector(cmpLogsAction))
-        cmpShellBtn   = makeBtn(L.t("Shell…",      "Shell…"),     #selector(cmpShellAction))
-        cmpEnvBtn     = makeBtn(L.t("Env",         "Env"),        #selector(cmpEnvAction))
+        cmpStartBtn   = makeBtn(L.t("Démarrer", "Start"),     symbol: "play.fill",             #selector(cmpStartAction))
+        cmpStopBtn    = makeBtn(L.t("Arrêter",  "Stop"),      symbol: "stop.fill",             #selector(cmpStopAction))
+        cmpRestartBtn = makeBtn(L.t("Redémarrer", "Restart"), symbol: "arrow.clockwise",       #selector(cmpRestartAction))
+        cmpLogsBtn    = makeBtn(L.t("Logs", "Logs"),          symbol: "text.alignleft",        #selector(cmpLogsAction))
+        cmpShellBtn   = makeBtn(L.t("Shell…", "Shell…"),      symbol: "terminal",              #selector(cmpShellAction))
+        cmpEnvBtn     = makeBtn(L.t("Env", "Env"),            symbol: "list.bullet.rectangle", #selector(cmpEnvAction))
         let actionBar = NSStackView(views: [cmpStartBtn, cmpStopBtn, cmpRestartBtn,
                                             cmpLogsBtn, cmpShellBtn, cmpEnvBtn])
         actionBar.orientation  = .horizontal
@@ -760,10 +760,15 @@ final class ContainersPanelViewController: NSViewController {
         updateComposeButtons()
     }
 
-    private func makeBtn(_ title: String, _ action: Selector) -> NSButton {
+    private func makeBtn(_ title: String, symbol: String? = nil, _ action: Selector) -> NSButton {
         let b = NSButton(title: title, target: self, action: action)
         b.bezelStyle  = .rounded
         b.controlSize = .small
+        if let symbol, let img = Theme.symbol(symbol, title, pointSize: 11, weight: .medium) {
+            b.image          = img
+            b.imagePosition  = .imageLeading
+            b.imageHugsTitle = true
+        }
         return b
     }
 
@@ -837,43 +842,43 @@ final class ContainersPanelViewController: NSViewController {
     private func rebuildContextMenu(for c: DockerContainer) {
         contextMenu.removeAllItems()
 
-        let startItem = NSMenuItem(title: L.t("▶ Démarrer", "▶ Start"),
-                                   action: #selector(menuStart), keyEquivalent: "")
+        let startItem = NSMenuItem(title: L.t("Démarrer", "Start"),
+                                   action: #selector(menuStart), keyEquivalent: "").withSymbol("play.fill")
         startItem.target = self; startItem.isEnabled = !c.isRunning
         contextMenu.addItem(startItem)
 
-        let stopItem = NSMenuItem(title: L.t("■ Arrêter", "■ Stop"),
-                                  action: #selector(menuStop), keyEquivalent: "")
+        let stopItem = NSMenuItem(title: L.t("Arrêter", "Stop"),
+                                  action: #selector(menuStop), keyEquivalent: "").withSymbol("stop.fill")
         stopItem.target = self; stopItem.isEnabled = c.isRunning
         contextMenu.addItem(stopItem)
 
-        let restartItem = NSMenuItem(title: L.t("↺ Restart", "↺ Restart"),
-                                     action: #selector(menuRestart), keyEquivalent: "")
+        let restartItem = NSMenuItem(title: L.t("Redémarrer", "Restart"),
+                                     action: #selector(menuRestart), keyEquivalent: "").withSymbol("arrow.clockwise")
         restartItem.target = self; restartItem.isEnabled = c.isRunning
         contextMenu.addItem(restartItem)
 
         contextMenu.addItem(.separator())
 
         let logsItem = NSMenuItem(title: L.t("Logs", "Logs"),
-                                  action: #selector(menuLogs), keyEquivalent: "")
+                                  action: #selector(menuLogs), keyEquivalent: "").withSymbol("text.alignleft")
         logsItem.target = self
         contextMenu.addItem(logsItem)
 
         let shellItem = NSMenuItem(title: L.t("Shell…", "Shell…"),
-                                   action: #selector(menuShell), keyEquivalent: "")
+                                   action: #selector(menuShell), keyEquivalent: "").withSymbol("terminal")
         shellItem.target = self; shellItem.isEnabled = c.isRunning
         contextMenu.addItem(shellItem)
 
         contextMenu.addItem(.separator())
 
         let copyItem = NSMenuItem(title: L.t("Copier l'ID", "Copy ID"),
-                                  action: #selector(menuCopyID), keyEquivalent: "")
+                                  action: #selector(menuCopyID), keyEquivalent: "").withSymbol("doc.on.doc")
         copyItem.target = self
         contextMenu.addItem(copyItem)
 
         for port in c.hostPortNumbers {
-            let portItem = NSMenuItem(title: "Open Port \(port)",
-                                      action: #selector(menuOpenPort(_:)), keyEquivalent: "")
+            let portItem = NSMenuItem(title: L.t("Ouvrir le port \(port)", "Open Port \(port)"),
+                                      action: #selector(menuOpenPort(_:)), keyEquivalent: "").withSymbol("arrow.up.forward.app")
             portItem.target = self; portItem.tag = port
             contextMenu.addItem(portItem)
         }
@@ -881,7 +886,7 @@ final class ContainersPanelViewController: NSViewController {
         contextMenu.addItem(.separator())
 
         let filterItem = NSMenuItem(title: L.t("Filtrer par cette image", "Filter by this image"),
-                                    action: #selector(menuFilterByImage), keyEquivalent: "")
+                                    action: #selector(menuFilterByImage), keyEquivalent: "").withSymbol("line.3.horizontal.decrease.circle")
         filterItem.target = self
         contextMenu.addItem(filterItem)
 
@@ -896,13 +901,13 @@ final class ContainersPanelViewController: NSViewController {
             item.state = currentPolicy == policy ? .on : .off
             policySubmenu.addItem(item)
         }
-        let policyItem = NSMenuItem(title: L.t("Restart policy", "Restart policy"),
-                                    action: nil, keyEquivalent: "")
+        let policyItem = NSMenuItem(title: L.t("Politique de redémarrage", "Restart policy"),
+                                    action: nil, keyEquivalent: "").withSymbol("arrow.triangle.2.circlepath")
         policyItem.submenu = policySubmenu
         contextMenu.addItem(policyItem)
 
-        let inspectItem = NSMenuItem(title: L.t("Inspect", "Inspect"),
-                                     action: #selector(menuInspect), keyEquivalent: "")
+        let inspectItem = NSMenuItem(title: L.t("Inspecter", "Inspect"),
+                                     action: #selector(menuInspect), keyEquivalent: "").withSymbol("magnifyingglass")
         inspectItem.target = self
         contextMenu.addItem(inspectItem)
     }
@@ -1160,20 +1165,21 @@ final class ContainersPanelViewController: NSViewController {
 
     private func rebuildComposeContextMenu(for c: DockerContainer) {
         composeContextMenu.removeAllItems()
-        func item(_ title: String, _ sel: Selector, enabled: Bool = true) -> NSMenuItem {
-            let i = NSMenuItem(title: title, action: sel, keyEquivalent: "")
+        func item(_ title: String, _ sel: Selector, symbol: String, enabled: Bool = true) -> NSMenuItem {
+            let i = NSMenuItem(title: title, action: sel, keyEquivalent: "").withSymbol(symbol)
             i.target = self; i.isEnabled = enabled; return i
         }
-        composeContextMenu.addItem(item(L.t("▶ Démarrer", "▶ Start"),   #selector(cmpMenuStart),   enabled: !c.isRunning))
-        composeContextMenu.addItem(item(L.t("■ Arrêter",   "■ Stop"),    #selector(cmpMenuStop),    enabled: c.isRunning))
-        composeContextMenu.addItem(item(L.t("↺ Restart",   "↺ Restart"), #selector(cmpMenuRestart), enabled: c.isRunning))
+        composeContextMenu.addItem(item(L.t("Démarrer", "Start"),     #selector(cmpMenuStart),   symbol: "play.fill",       enabled: !c.isRunning))
+        composeContextMenu.addItem(item(L.t("Arrêter", "Stop"),       #selector(cmpMenuStop),    symbol: "stop.fill",       enabled: c.isRunning))
+        composeContextMenu.addItem(item(L.t("Redémarrer", "Restart"), #selector(cmpMenuRestart), symbol: "arrow.clockwise", enabled: c.isRunning))
         composeContextMenu.addItem(.separator())
-        composeContextMenu.addItem(item(L.t("Logs", "Logs"),             #selector(cmpMenuLogs)))
-        composeContextMenu.addItem(item(L.t("Shell…", "Shell…"),         #selector(cmpMenuShell), enabled: c.isRunning))
+        composeContextMenu.addItem(item(L.t("Logs", "Logs"),          #selector(cmpMenuLogs),    symbol: "text.alignleft"))
+        composeContextMenu.addItem(item(L.t("Shell…", "Shell…"),      #selector(cmpMenuShell),   symbol: "terminal",        enabled: c.isRunning))
         composeContextMenu.addItem(.separator())
-        composeContextMenu.addItem(item(L.t("Copier l'ID", "Copy ID"),   #selector(cmpMenuCopyID)))
+        composeContextMenu.addItem(item(L.t("Copier l'ID", "Copy ID"), #selector(cmpMenuCopyID), symbol: "doc.on.doc"))
         for port in c.hostPortNumbers {
-            let pi = NSMenuItem(title: "Open Port \(port)", action: #selector(menuOpenPort(_:)), keyEquivalent: "")
+            let pi = NSMenuItem(title: L.t("Ouvrir le port \(port)", "Open Port \(port)"),
+                                action: #selector(menuOpenPort(_:)), keyEquivalent: "").withSymbol("arrow.up.forward.app")
             pi.target = self; pi.tag = port
             composeContextMenu.addItem(pi)
         }
@@ -1448,12 +1454,14 @@ extension ContainersPanelViewController: NSOutlineViewDataSource, NSOutlineViewD
             case "costatus":
                 cell.textField?.font = .systemFont(ofSize: 12)
                 if running == total {
-                    cell.textField?.stringValue = "✅ All running"; cell.textField?.textColor = .systemGreen
+                    cell.textField?.stringValue = "● " + L.t("Tous actifs", "All running")
+                    cell.textField?.textColor   = Theme.Status.running
                 } else if running == 0 {
-                    cell.textField?.stringValue = "⛔ Stopped";     cell.textField?.textColor = .tertiaryLabelColor
+                    cell.textField?.stringValue = "○ " + L.t("Arrêté", "Stopped")
+                    cell.textField?.textColor   = Theme.Status.stopped
                 } else {
-                    cell.textField?.stringValue = "⚠ \(running)/\(total) running"
-                    cell.textField?.textColor   = .systemOrange
+                    cell.textField?.stringValue = "◐ " + L.t("\(running)/\(total) actifs", "\(running)/\(total) running")
+                    cell.textField?.textColor   = Theme.Status.warning
                 }
             case "cocpu", "coram": cell.textField?.stringValue = ""
             default: break
@@ -1468,8 +1476,8 @@ extension ContainersPanelViewController: NSOutlineViewDataSource, NSOutlineViewD
             cell.textField?.font = .systemFont(ofSize: 12)
             switch id {
             case "costate":
-                cell.textField?.stringValue = c.isRunning ? "▶" : "■"
-                cell.textField?.textColor   = c.isRunning ? .systemGreen : .tertiaryLabelColor
+                cell.textField?.stringValue = "●"
+                cell.textField?.textColor   = c.isRunning ? Theme.Status.running : Theme.Status.stopped
             case "coname":
                 cell.textField?.stringValue = c.name
                 cell.textField?.textColor   = .labelColor
@@ -1619,8 +1627,8 @@ extension ContainersPanelViewController: NSTableViewDataSource, NSTableViewDeleg
 
         switch id {
         case "state":
-            cell.textField?.stringValue = c.isRunning ? "▶" : "■"
-            cell.textField?.textColor   = c.isRunning ? .systemGreen : .tertiaryLabelColor
+            cell.textField?.stringValue = "●"
+            cell.textField?.textColor   = c.isRunning ? Theme.Status.running : Theme.Status.stopped
         case "name":
             cell.textField?.stringValue = c.name
             cell.textField?.textColor   = .labelColor

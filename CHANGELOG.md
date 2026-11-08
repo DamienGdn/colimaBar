@@ -1,5 +1,48 @@
 # Changelog
 
+## v1.11.0 — 2026-11-08
+
+### New: Linux & Windows edition (`tauri/`)
+
+- Cross-platform system-tray app built with Tauri 2 (Rust backend + web UI); the macOS AppKit app is unchanged
+- **Linux**: manages Colima when installed (start/stop, profile, CPU / memory / disk), otherwise the local Docker daemon
+- **Windows**: manages Docker Desktop or Docker Engine in WSL2 (`wsl -e docker` auto-detected); console windows are never flashed
+- Tray icon with status badge, live CPU/RAM, start/stop, Portainer, prune, settings; left-click toggles the window (Windows); closing keeps the app in the tray; single instance
+- Compose / Containers / Images / Volumes / Networks tabs, detail panel with sparklines, live `docker logs -f` streaming, shell in the user's terminal (Windows Terminal, gnome-terminal, konsole, …), env vars, inspect, remove, restart policy
+- Notifications: engine started/stopped, container crash, CPU > 80 % / RAM > 90 %
+- Settings: language, refresh interval, custom Docker command, Colima profile/resources, auto-start Colima, launch at login, start hidden
+- Light & dark themes, FR / EN
+- Packages: `.deb`, `.rpm`, `AppImage`, NSIS `.exe`, `.msi` — built by the new `Desktop (Linux & Windows)` workflow, attached to releases on `v*` tags
+- Parser unit tests (`cargo test`), clippy + rustfmt in CI
+- `make icons` now also generates the Tauri PNG / ICO icons and tray icons
+
+---
+
+## v1.10.0 — 2026-11-08
+
+### Design
+
+- **New app icon** — macOS-style squircle with a geometric llama carrying containers (indigo / teal / orange palette); full `.icns` set up to 1024 px
+- **New menu bar glyph** — crisp template glyph that follows light/dark menu bars; green badge (running), orange badge (starting/stopping), dimmed glyph (stopped) with a knocked-out ring instead of a white outline
+- **SF Symbols everywhere** — menu items, action buttons, context menus and the logs window use native SF Symbols instead of emoji / text glyphs (▶ ■ ↺ 🗑 ⚙ 🔄)
+- **Cleaner status** — colored status dots in the menu and tables; Compose project status localized (Tous actifs / Arrêté / N/M actifs)
+- **Sparklines** — gradient fill, rounded joins, subtle track and top inset so the line is never clipped
+- **About panel** — new "About ColimaBar" menu item with icon, version and copyright
+- Settings shortcut `⌘,`; container count item reads `N/M containers…`
+- README redesigned (banner, grouped features, brand asset docs)
+
+### Project
+
+- Vector sources for all artwork in `design/` + `make icons` (`scripts/render-icons.mjs`)
+- Dedicated simplified icon artwork for 16 / 32 px so the icon stays legible in Finder lists and menus
+- Complete `.icns` (all 10 renditions, 16 → 1024 px); `scripts/pack-icns.py` packs it when `iconutil` is unavailable
+- GitHub social preview image (`docs/social-preview.png`)
+- `Info.plist`: version synced (was stuck at 1.0), display name, copyright, app category
+- CI: run the custom test runner (`swift run ColimaBarTests`) — `swift test` found no XCTest target
+- `make test` target; `.superpowers/` scratch files removed from git
+
+---
+
 ## v1.9.2 — 2026-05-22
 
 ### Improvements
