@@ -49,7 +49,7 @@ struct HeaderView: View {
             .disabled(isTransitioning)
             .opacity(isTransitioning ? 0.5 : 1)
 
-            iconButton("arrow.clockwise", L.t("Rafraîchir", "Refresh")) { store.refresh() }
+            iconButton("arrow.clockwise", L.t("Rafraîchir", "Refresh")) { store.refreshVisible() }
 
             Menu {
                 Button(L.t("À propos", "About")) { (NSApp.delegate as? AppDelegate)?.showAbout() }

@@ -39,13 +39,39 @@ final class VolumeBrowserViewController: NSViewController {
     func updateContainers(_ all: [DockerContainer]) {
         containers = all.filter { $0.isRunning }
         let names = containers.map { $0.name }
+        let previous = containerPicker.titleOfSelectedItem
         containerPicker.removeAllItems()
         containerPicker.addItems(withTitles: names.isEmpty ? ["—"] : names)
+        // Keep the user's container (and path) across the periodic state refreshes.
+        if let previous, names.contains(previous) { containerPicker.selectItem(withTitle: previous) }
         emptyLabel.isHidden = !containers.isEmpty
         scrollView.isHidden = containers.isEmpty
         downloadButton.isEnabled = !containers.isEmpty
         uploadButton.isEnabled = !containers.isEmpty
         if !containers.isEmpty { reload() }
+    }
+
+    /// Positions the browser on `volume`: picks a running container among `names` that mounts it and opens the
+    /// mount point. Returns false when none of them is running (nothing changes).
+    @discardableResult
+    func showVolume(_ volume: String, usedBy names: [String]) -> Bool {
+        guard let idx = containers.firstIndex(where: { names.contains($0.name) }) else { return false }
+        let container = containers[idx]
+        containerPicker.selectItem(at: idx)
+        pathStack = ["/"]
+        reload()
+        DispatchQueue.global().async {
+            let format = "{{range .Mounts}}{{if eq .Name \"\(volume)\"}}{{.Destination}}{{end}}{{end}}"
+            let out = ProcessShellRunner().run("/opt/homebrew/bin/docker", args: ["inspect", "-f", format, container.name])
+            let dest = out.output.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard out.exitCode == 0, dest.hasPrefix("/"), dest != "/" else { return }
+            DispatchQueue.main.async {
+                guard self.currentContainer?.name == container.name else { return }
+                self.pathStack = ["/", dest]
+                self.reload()
+            }
+        }
+        return true
     }
 
     // MARK: - Private

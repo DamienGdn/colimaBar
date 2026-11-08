@@ -57,8 +57,16 @@ struct DashboardRootView: View {
                 HostedVC(make: { store.modules.logs })
             case .snapshots:
                 HostedVC(make: { store.modules.snapshots })
-            default:
-                placeholder(store.section.rawValue.capitalized)
+            case .images:
+                ImagesView()
+            case .volumes:
+                if case .volumeBrowser(let volume) = store.route {
+                    VolumeBrowserRoute(volume: volume)
+                } else {
+                    VolumesView()
+                }
+            case .networks:
+                NetworksView()
             }
         }
     }
@@ -110,7 +118,4 @@ struct DashboardRootView: View {
         }
     }
 
-    private func placeholder(_ name: String) -> some View {
-        Text(name).font(.title2).foregroundColor(.tkText3)
-    }
 }

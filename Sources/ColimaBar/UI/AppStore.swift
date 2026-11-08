@@ -28,6 +28,12 @@ final class AppStore: ObservableObject {
     @Published var transition: String?
     @Published var updateVersion: String?
     @Published var lastError: String?
+    @Published private(set) var images: [DockerImage] = []
+    @Published private(set) var volumes: [DockerVolume] = []
+    @Published private(set) var networks: [DockerNetwork] = []
+    /// Sections whose list has been fetched at least once since Colima came up.
+    @Published private(set) var loadedLists: Set<DashboardSection> = []
+    @Published private(set) var loadingLists: Set<DashboardSection> = []
 
     init(manager: ColimaManager) {
         self.manager = manager
@@ -54,6 +60,7 @@ final class AppStore: ObservableObject {
         if !statsMissing { history.record(state.containerStats) }
         if case .transitioning(let label) = state.colima { transition = label } else { transition = nil }
         self.state = state
+        if state.colima != .running && !loadedLists.isEmpty { loadedLists = [] }
         if state.colima == .running {
             // Drop selections whose container / stack is gone (removed, compose down…).
             let valid = ContainerGrouping.validSelection(container: selectedContainer, stack: selectedStack,
@@ -62,6 +69,17 @@ final class AppStore: ObservableObject {
             if valid.stack != selectedStack { selectedStack = valid.stack }
         }
         modules.updateContainers(state.containers)
+    }
+
+    /// Header refresh: global state plus the list of the visible section.
+    func refreshVisible() {
+        refresh()
+        switch section {
+        case .images: loadImages()
+        case .volumes: loadVolumes()
+        case .networks: loadNetworks()
+        default: break
+        }
     }
 
     func refresh() {
@@ -180,6 +198,72 @@ final class AppStore: ObservableObject {
             switch result {
             case .success: self?.refresh()
             case .failure(let error): self?.fail(error)
+            }
+        }
+    }
+
+    // MARK: - Images / volumes / networks
+
+    private func load<T>(_ section: DashboardSection, _ fetch: (@escaping ([T]) -> Void) -> Void,
+                         assign: @escaping (AppStore, [T]) -> Void) {
+        guard !loadingLists.contains(section) else { return }
+        loadingLists.insert(section)
+        fetch { [weak self] items in
+            guard let self else { return }
+            assign(self, items)
+            self.loadingLists.remove(section)
+            self.loadedLists.insert(section)
+        }
+    }
+
+    func loadImages() { load(.images, manager.fetchImages) { $0.images = $1 } }
+    func loadVolumes() { load(.volumes, manager.fetchVolumes) { $0.volumes = $1 } }
+    func loadNetworks() { load(.networks, manager.fetchNetworks) { $0.networks = $1 } }
+
+    /// Loads a section's list the first time it is shown.
+    func loadIfNeeded(_ section: DashboardSection) {
+        guard !loadedLists.contains(section) else { return }
+        switch section {
+        case .images: loadImages()
+        case .volumes: loadVolumes()
+        case .networks: loadNetworks()
+        default: break
+        }
+    }
+
+    func deleteImage(_ ref: String) {
+        manager.deleteImage(ref) { [weak self] result in
+            switch result {
+            case .success: self?.loadImages()
+            case .failure(let error): self?.fail(error)
+            }
+        }
+    }
+
+    func pullImage(_ name: String, completion: @escaping () -> Void) {
+        delegate?.showSuccess(L.t("Téléchargement de \(name)…", "Pulling \(name)…"))
+        manager.pullImage(name) { [weak self] result in
+            switch result {
+            case .success:
+                self?.delegate?.showSuccess(L.t("\(name) téléchargée", "\(name) pulled"))
+                self?.loadImages()
+            case .failure(let error): self?.fail(error)
+            }
+            completion()
+        }
+    }
+
+    func pruneImagesList() { prune(manager.pruneImages) { $0.loadImages() } }
+    func pruneVolumes() { prune(manager.pruneVolumes) { $0.loadVolumes() } }
+    func pruneNetworks() { prune(manager.pruneNetworks) { $0.loadNetworks() } }
+
+    private func prune(_ run: (@escaping (Result<String, Error>) -> Void) -> Void,
+                       then reload: @escaping (AppStore) -> Void) {
+        run { [weak self] result in
+            guard let self else { return }
+            switch result {
+            case .success: reload(self); self.refresh()
+            case .failure(let error): self.fail(error)
             }
         }
     }
