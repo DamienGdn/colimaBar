@@ -12,6 +12,12 @@ enum Theme {
         static let navy   = NSColor(srgbRed: 0.071, green: 0.102, blue: 0.290, alpha: 1)  // #121A4A
     }
 
+    /// Fixed (non-adaptive) status colors for use on the dark header band.
+    enum Header {
+        static let running       = NSColor(srgbRed: 0.204, green: 0.820, blue: 0.478, alpha: 1)  // #34D17A
+        static let transitioning = NSColor(srgbRed: 1.000, green: 0.702, blue: 0.251, alpha: 1)  // #FFB340
+    }
+
     /// Header band gradient (indigo to navy).
     static let headerGradient = LinearGradient(
         colors: [Color(nsColor: Brand.indigo), Color(nsColor: Brand.navy)],

@@ -19,7 +19,7 @@ struct BrandLogo: View {
     let size: CGFloat
     var body: some View {
         Group {
-            if let icon = NSApp.applicationIconImage {
+            if let icon = NSApplication.shared.applicationIconImage {
                 Image(nsImage: icon).resizable().interpolation(.high)
             } else {
                 Color.tkAccent
@@ -51,8 +51,8 @@ struct StatePill: View {
     }
     private var dot: Color {
         switch state {
-        case .running: return Color(nsColor: NSColor(srgbRed: 0.204, green: 0.820, blue: 0.478, alpha: 1)) // #34D17A
-        case .transitioning: return Color(nsColor: NSColor(srgbRed: 1, green: 0.702, blue: 0.251, alpha: 1)) // #FFB340
+        case .running: return Color(nsColor: Theme.Header.running)
+        case .transitioning: return Color(nsColor: Theme.Header.transitioning)
         default: return Color.tkText3
         }
     }
@@ -163,17 +163,24 @@ struct PortChip: View {
     @State private var hovering = false
 
     var body: some View {
-        Text(String(port))
-            .font(.system(size: 11.5, design: .monospaced))
-            .foregroundColor(.tkAccent)
-            .underline(hovering)
-            .padding(.horizontal, 6).padding(.vertical, 1)
-            .background(RoundedRectangle(cornerRadius: 5).fill(Color.tkAccentSoft))
-            .onHover { hovering = $0 }
-            .onTapGesture {
-                if let url = URL(string: "http://localhost:\(port)") { NSWorkspace.shared.open(url) }
-            }
-            .help("http://localhost:\(port)")
+        Button {
+            if let url = URL(string: "http://localhost:\(port)") { NSWorkspace.shared.open(url) }
+        } label: {
+            Text(String(port))
+                .font(.system(size: 11.5, design: .monospaced))
+                .foregroundColor(.tkAccent)
+                .underline(hovering)
+                .padding(.horizontal, 8).padding(.vertical, 3)
+                .background(RoundedRectangle(cornerRadius: 5).fill(Color.tkAccentSoft))
+                .contentShape(RoundedRectangle(cornerRadius: 5))
+        }
+        .buttonStyle(.plain)
+        .onHover { inside in
+            hovering = inside
+            if inside { NSCursor.pointingHand.push() } else { NSCursor.pop() }
+        }
+        .accessibilityLabel(L.t("Ouvrir localhost:\(port)", "Open localhost:\(port)"))
+        .help("http://localhost:\(port)")
     }
 }
 
