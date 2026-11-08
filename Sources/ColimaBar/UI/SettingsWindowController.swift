@@ -23,8 +23,10 @@ final class SettingsWindowController: NSWindowController {
 
     func show(store: AppStore) {
         self.store = store
-        rebuildContent(store: store)
-        if window?.isVisible != true { window?.center() }
+        if window?.isVisible != true {
+            rebuildContent(store: store)
+            window?.center()
+        }
         NSApp.activate(ignoringOtherApps: true)
         showWindow(nil)
         window?.makeKeyAndOrderFront(nil)
@@ -139,5 +141,13 @@ private final class SettingsContentViewController: NSViewController {
     @objc private func instanceSelected() {
         guard let name = instancePicker.titleOfSelectedItem else { return }
         store.switchInstance(to: name)
+        resyncPanel()
+        // State of the new instance arrives with the next poll: refresh again then.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in self?.resyncPanel() }
+    }
+
+    private func resyncPanel() {
+        if case .running = store.state.colima { panel.isColimaRunning = true } else { panel.isColimaRunning = false }
+        panel.syncControls()
     }
 }

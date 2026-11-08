@@ -139,6 +139,7 @@ final class AppStore: ObservableObject {
 
     /// Stops then starts Colima to apply a new config (CPU / memory / disk).
     func restartColima() {
+        if transition != nil { return }
         manager.stopColima(onTransition: { [weak self] state in
             self?.apply(state)
         }, completion: { [weak self] result in
@@ -149,12 +150,14 @@ final class AppStore: ObservableObject {
                     self?.apply(state)
                 }, completion: { [weak self] result in
                     switch result {
-                    case .success(let state): self?.apply(state)
-                    case .failure(let error): self?.delegate?.showError(error.localizedDescription)
+                    case .success(let state):
+                        self?.apply(state)
+                        self?.lastError = nil
+                    case .failure(let error): self?.fail(error)
                     }
                 })
             case .failure(let error):
-                self.delegate?.showError(error.localizedDescription)
+                self.fail(error)
             }
         })
     }

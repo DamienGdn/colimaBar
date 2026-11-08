@@ -38,6 +38,7 @@ final class VolumeBrowserViewController: NSViewController {
     // MARK: - Public
 
     func updateContainers(_ all: [DockerContainer]) {
+        if !isViewLoaded { _ = view }
         containers = all.filter { $0.isRunning }
         let names = containers.map { $0.name }
         let previous = containerPicker.titleOfSelectedItem
@@ -171,6 +172,12 @@ final class VolumeBrowserViewController: NSViewController {
             emptyLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             emptyLabel.centerYAnchor.constraint(equalTo: view.centerYAnchor),
         ])
+
+        // Reflect containers received before the view was built.
+        card.isHidden = containers.isEmpty
+        emptyLabel.isHidden = !containers.isEmpty
+        downloadButton.isEnabled = !containers.isEmpty
+        uploadButton.isEnabled = !containers.isEmpty
     }
 
     private func reload() {

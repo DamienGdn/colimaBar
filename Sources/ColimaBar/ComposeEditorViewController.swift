@@ -153,13 +153,13 @@ final class ComposeEditorViewController: NSViewController {
         guard let selection = plan.selection, let idx = projects.firstIndex(of: selection) else {
             loadedProject = nil
             emptyLabel.isHidden = false
-            card.isHidden = true
+            card?.isHidden = true
             saveRestartButton.isEnabled = false
             dirtyIndicator.isHidden = true
             return
         }
         emptyLabel.isHidden = true
-        card.isHidden = false
+        card?.isHidden = false
         saveRestartButton.isEnabled = !saving
         updateDirtyIndicator()
         projectPicker.selectItem(at: idx)
