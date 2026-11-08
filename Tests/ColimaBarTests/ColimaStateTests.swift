@@ -48,6 +48,13 @@ final class MockShellRunner: ShellRunner {
 let _colimaPath = "/opt/homebrew/bin/colima"
 let _dockerPath = "/opt/homebrew/bin/docker"
 
+func waitUntil(timeout: TimeInterval = 2, _ done: () -> Bool) {
+    let deadline = Date().addingTimeInterval(timeout)
+    while !done() && Date() < deadline {
+        RunLoop.main.run(until: Date().addingTimeInterval(0.01))
+    }
+}
+
 func makeKey(_ path: String, _ args: [String]) -> String {
     ([path] + args).joined(separator: " ")
 }

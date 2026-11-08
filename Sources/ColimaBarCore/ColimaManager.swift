@@ -378,6 +378,49 @@ public final class ColimaManager {
         }
     }
 
+    public func removeContainer(_ name: String, force: Bool, completion: @escaping (Result<Void, Error>) -> Void) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            let args = force ? ["rm", "-f", name] : ["rm", name]
+            let result = self.shell.run(self.dockerPath, args: args)
+            if result.exitCode == 0 {
+                DispatchQueue.main.async { completion(.success(())) }
+            } else {
+                let msg = result.error.isEmpty
+                    ? "\(L.t("Impossible de supprimer", "Failed to remove")) \(name)"
+                    : result.error
+                DispatchQueue.main.async { completion(.failure(ShellError(message: msg))) }
+            }
+        }
+    }
+
+    public func pruneImages(completion: @escaping (Result<String, Error>) -> Void) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            let result = self.shell.run(self.dockerPath, args: ["image", "prune", "-f"])
+            if result.exitCode == 0 {
+                DispatchQueue.main.async { completion(.success(result.output)) }
+            } else {
+                let msg = result.error.isEmpty
+                    ? L.t("Échec du nettoyage des images", "Failed to prune images")
+                    : result.error
+                DispatchQueue.main.async { completion(.failure(ShellError(message: msg))) }
+            }
+        }
+    }
+
+    public func inspectContainer(_ name: String, completion: @escaping (Result<String, Error>) -> Void) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            let result = self.shell.run(self.dockerPath, args: ["inspect", name])
+            if result.exitCode == 0 {
+                DispatchQueue.main.async { completion(.success(result.output)) }
+            } else {
+                let msg = result.error.isEmpty
+                    ? "\(L.t("Impossible d'inspecter", "Failed to inspect")) \(name)"
+                    : result.error
+                DispatchQueue.main.async { completion(.failure(ShellError(message: msg))) }
+            }
+        }
+    }
+
     // Checks brew outdated colima once. Returns new version string or nil if up to date.
     public func checkForColimaUpdate(completion: @escaping (String?) -> Void) {
         DispatchQueue.global(qos: .background).async {

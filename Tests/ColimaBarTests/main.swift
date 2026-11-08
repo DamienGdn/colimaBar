@@ -75,6 +75,12 @@ test_snapshotService_skipNonSnapshot()
 test_snapshotService_snapshotPath_construction()
 test_snapshotService_createCallsStopCopyStart()
 
+test_removeContainer_usesRm()
+test_removeContainer_force_usesDashF()
+test_removeContainer_failure_propagatesMessage()
+test_pruneImages_args()
+test_inspectContainer_returnsJSON()
+
 print("\n\(_passed) passed, \(_failed) failed")
 if _failed > 0 {
     exit(1)
