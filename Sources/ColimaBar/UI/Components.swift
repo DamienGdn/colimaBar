@@ -176,8 +176,12 @@ struct PortChip: View {
         }
         .buttonStyle(.plain)
         .onHover { inside in
+            guard inside != hovering else { return }
             hovering = inside
             if inside { NSCursor.pointingHand.push() } else { NSCursor.pop() }
+        }
+        .onDisappear {
+            if hovering { NSCursor.pop(); hovering = false }
         }
         .accessibilityLabel(L.t("Ouvrir localhost:\(port)", "Open localhost:\(port)"))
         .help("http://localhost:\(port)")
