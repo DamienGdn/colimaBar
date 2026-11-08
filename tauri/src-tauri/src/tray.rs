@@ -3,9 +3,11 @@
 //! Linux (AppIndicator) only supports the menu, not clicks, so every action is
 //! reachable from the menu. On Windows a left click toggles the window.
 
+use crate::breathing;
 use crate::model::{Backend, EngineStatus, Settings, Snapshot};
 use crate::{engine_lifecycle, show_main_window, Shared};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
+use std::time::Duration;
 use tauri::image::Image;
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
@@ -16,6 +18,24 @@ const TRAY_ID: &str = "colimabar";
 static ICON_RUNNING: &[u8] = include_bytes!("../icons/tray/running.png");
 static ICON_TRANSITION: &[u8] = include_bytes!("../icons/tray/transitioning.png");
 static ICON_STOPPED: &[u8] = include_bytes!("../icons/tray/stopped.png");
+
+/// Frames of one breath, shown in a loop while Colima is transitioning.
+const FRAME_COUNT: u32 = 8;
+/// Time between two frames (one breath = `FRAME_COUNT` frames, ≈ 200 ms each).
+const FRAME_STEP_SECS: f64 = breathing::PERIOD_SECS / FRAME_COUNT as f64;
+
+/// Breathing animator state; at most one animator thread is live at a time.
+struct Animator {
+    /// Bumped on every start and stop: a thread whose generation no longer
+    /// matches exits, and its pending frames are dropped.
+    generation: u64,
+    active: bool,
+}
+
+static ANIMATOR: Mutex<Animator> = Mutex::new(Animator {
+    generation: 0,
+    active: false,
+});
 
 /// Handles to the menu items whose text / visibility changes with the state.
 pub struct TrayItems {
@@ -260,16 +280,104 @@ pub fn update(app: &AppHandle, s: &Settings, snap: &Snapshot) {
     if let Some(tray) = app.tray_by_id(TRAY_ID) {
         let _ = tray.set_tooltip(Some(format!("ColimaBar — {status_text}")));
         let mut last = items.last_icon.lock().unwrap();
-        if *last != icon_key {
-            let bytes = match icon_key {
-                "running" => ICON_RUNNING,
-                "transitioning" => ICON_TRANSITION,
-                _ => ICON_STOPPED,
-            };
-            if let Ok(img) = Image::from_bytes(bytes) {
-                let _ = tray.set_icon(Some(img));
-                *last = icon_key;
+        if icon_key == "transitioning" && start_breathing(app) {
+            // The animator owns the icon until the transition ends: forget the
+            // cached key so the static icon is applied again afterwards.
+            *last = "";
+        } else {
+            stop_breathing();
+            if *last != icon_key {
+                let bytes = match icon_key {
+                    "running" => ICON_RUNNING,
+                    "transitioning" => ICON_TRANSITION,
+                    _ => ICON_STOPPED,
+                };
+                if let Ok(img) = Image::from_bytes(bytes) {
+                    let _ = tray.set_icon(Some(img));
+                    *last = icon_key;
+                }
             }
         }
+    }
+}
+
+/// `ICON_TRANSITION` with its opacity following one breath, decoded once.
+/// Empty if the icon cannot be decoded (the static icon is used instead).
+fn breathing_frames() -> &'static [Image<'static>] {
+    static FRAMES: OnceLock<Vec<Image<'static>>> = OnceLock::new();
+    FRAMES.get_or_init(|| {
+        let Ok(base) = Image::from_bytes(ICON_TRANSITION) else {
+            return Vec::new();
+        };
+        (0..FRAME_COUNT)
+            .map(|i| {
+                let alpha = breathing::breathing_alpha(f64::from(i) * FRAME_STEP_SECS);
+                let rgba = breathing::scale_alpha(base.rgba(), alpha);
+                Image::new_owned(rgba, base.width(), base.height())
+            })
+            .collect()
+    })
+}
+
+/// Starts the animator unless one is already live. Returns `false` when no
+/// animation is available, so the caller falls back to the static icon.
+fn start_breathing(app: &AppHandle) -> bool {
+    let frames = breathing_frames();
+    if frames.is_empty() {
+        return false;
+    }
+    let mut anim = ANIMATOR.lock().unwrap();
+    if !anim.active {
+        anim.active = true;
+        anim.generation = anim.generation.wrapping_add(1);
+        let generation = anim.generation;
+        let app = app.clone();
+        std::thread::spawn(move || breathe(&app, generation, frames));
+    }
+    true
+}
+
+/// Stops the live animator, if any. Must run before the static icon is set so
+/// that no frame still queued on the main thread can overwrite it.
+fn stop_breathing() {
+    let mut anim = ANIMATOR.lock().unwrap();
+    if anim.active {
+        anim.active = false;
+        anim.generation = anim.generation.wrapping_add(1);
+    }
+}
+
+fn is_current(generation: u64) -> bool {
+    ANIMATOR.lock().unwrap().generation == generation
+}
+
+/// Animator thread: pushes one frame per step until its generation is stale.
+/// Frames are applied on the main thread, where the generation is checked
+/// again so a frame queued before a stop is dropped instead of shown.
+fn breathe(app: &AppHandle, generation: u64, frames: &'static [Image<'static>]) {
+    let step = Duration::from_secs_f64(FRAME_STEP_SECS);
+    for frame in frames.iter().cycle() {
+        if !is_current(generation) {
+            return;
+        }
+        let handle = app.clone();
+        let frame = frame.clone();
+        let queued = app.run_on_main_thread(move || {
+            if !is_current(generation) {
+                return;
+            }
+            if let Some(tray) = handle.tray_by_id(TRAY_ID) {
+                let _ = tray.set_icon(Some(frame));
+            }
+        });
+        if queued.is_err() {
+            // Event loop gone (app exiting): release the slot and stop.
+            let mut anim = ANIMATOR.lock().unwrap();
+            if anim.generation == generation {
+                anim.active = false;
+            }
+            return;
+        }
+        std::thread::sleep(step);
     }
 }
