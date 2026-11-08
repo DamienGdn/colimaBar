@@ -8,10 +8,11 @@ final class ComposeEditorViewController: NSViewController {
     // UI
     private let projectPicker = NSPopUpButton()
     private let scrollView = NSScrollView()
+    private var card: ThemedView!
     private var textView: NSTextView!
-    private let saveRestartButton = NSButton(title: "Save & Restart", target: nil, action: nil)
+    private let saveRestartButton = NSButton(title: L.t("Enregistrer et relancer", "Save & Restart"), target: nil, action: nil)
     private let dirtyIndicator = NSTextField(labelWithString: "")
-    private let emptyLabel = NSTextField(labelWithString: "Aucun projet Docker Compose détecté")
+    private let emptyLabel = NSTextField(labelWithString: L.t("Aucun projet Docker Compose détecté", "No Docker Compose project detected"))
 
     // State
     /// Projects found in the last poll; nil until the first one (so an empty list still shows the empty state).
@@ -40,7 +41,7 @@ final class ComposeEditorViewController: NSViewController {
         return projects[idx]
     }
 
-    override func loadView() { view = NSView() }
+    override func loadView() { view = ThemedView(fill: Theme.Tokens.bg) }
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -86,14 +87,17 @@ final class ComposeEditorViewController: NSViewController {
         tv.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
         tv.isAutomaticQuoteSubstitutionEnabled = false
         tv.isAutomaticDashSubstitutionEnabled = false
+        tv.drawsBackground = false
+        tv.textColor = Theme.Tokens.text
+        tv.insertionPointColor = Theme.Tokens.accent
+        tv.textContainerInset = NSSize(width: 6, height: 6)
         tv.delegate = self
         tv.translatesAutoresizingMaskIntoConstraints = false
         textView = tv
 
         scrollView.documentView = tv
         scrollView.hasVerticalScroller = true
-        scrollView.borderType = .bezelBorder
-        scrollView.translatesAutoresizingMaskIntoConstraints = false
+        card = Theme.card(wrapping: scrollView)
 
         saveRestartButton.bezelStyle = .rounded
         saveRestartButton.target = self
@@ -101,19 +105,19 @@ final class ComposeEditorViewController: NSViewController {
         saveRestartButton.isEnabled = false
         saveRestartButton.translatesAutoresizingMaskIntoConstraints = false
 
-        dirtyIndicator.stringValue = "● Modified"
-        dirtyIndicator.textColor = .systemOrange
+        dirtyIndicator.stringValue = L.t("● Modifié", "● Modified")
+        dirtyIndicator.textColor = Theme.Tokens.amber
         dirtyIndicator.font = .systemFont(ofSize: 12)
         dirtyIndicator.isHidden = true
         dirtyIndicator.translatesAutoresizingMaskIntoConstraints = false
 
         emptyLabel.font = .systemFont(ofSize: 14)
-        emptyLabel.textColor = .secondaryLabelColor
+        emptyLabel.textColor = Theme.Tokens.text3
         emptyLabel.alignment = .center
         emptyLabel.translatesAutoresizingMaskIntoConstraints = false
         emptyLabel.isHidden = true
 
-        for sub in [projectPicker, scrollView, saveRestartButton, dirtyIndicator, emptyLabel] as [NSView] {
+        for sub in [projectPicker, card, saveRestartButton, dirtyIndicator, emptyLabel] as [NSView] {
             view.addSubview(sub)
         }
 
@@ -125,14 +129,14 @@ final class ComposeEditorViewController: NSViewController {
             dirtyIndicator.centerYAnchor.constraint(equalTo: projectPicker.centerYAnchor),
             dirtyIndicator.leadingAnchor.constraint(equalTo: projectPicker.trailingAnchor, constant: 12),
 
-            scrollView.topAnchor.constraint(equalTo: projectPicker.bottomAnchor, constant: 8),
-            scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 12),
-            scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -12),
-            scrollView.bottomAnchor.constraint(equalTo: saveRestartButton.topAnchor, constant: -8),
+            card.topAnchor.constraint(equalTo: projectPicker.bottomAnchor, constant: 8),
+            card.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 12),
+            card.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -12),
+            card.bottomAnchor.constraint(equalTo: saveRestartButton.topAnchor, constant: -8),
 
             saveRestartButton.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -12),
             saveRestartButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -12),
-            saveRestartButton.widthAnchor.constraint(equalToConstant: 140),
+            saveRestartButton.widthAnchor.constraint(equalToConstant: 170),
 
             emptyLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             emptyLabel.centerYAnchor.constraint(equalTo: view.centerYAnchor),
@@ -149,13 +153,13 @@ final class ComposeEditorViewController: NSViewController {
         guard let selection = plan.selection, let idx = projects.firstIndex(of: selection) else {
             loadedProject = nil
             emptyLabel.isHidden = false
-            scrollView.isHidden = true
+            card.isHidden = true
             saveRestartButton.isEnabled = false
             dirtyIndicator.isHidden = true
             return
         }
         emptyLabel.isHidden = true
-        scrollView.isHidden = false
+        card.isHidden = false
         saveRestartButton.isEnabled = !saving
         updateDirtyIndicator()
         projectPicker.selectItem(at: idx)
@@ -178,10 +182,10 @@ final class ComposeEditorViewController: NSViewController {
 
     private func confirmDiscard() -> Bool {
         let alert = NSAlert()
-        alert.messageText = "Changements non sauvegardés"
-        alert.informativeText = "Changer de projet abandonnera les modifications en cours."
-        alert.addButton(withTitle: "Continuer")
-        alert.addButton(withTitle: "Annuler")
+        alert.messageText = L.t("Changements non sauvegardés", "Unsaved changes")
+        alert.informativeText = L.t("Changer de projet abandonnera les modifications en cours.", "Switching project will discard the current edits.")
+        alert.addButton(withTitle: L.t("Continuer", "Continue"))
+        alert.addButton(withTitle: L.t("Annuler", "Cancel"))
         return alert.runModal() == .alertFirstButtonReturn
     }
 
@@ -200,10 +204,10 @@ final class ComposeEditorViewController: NSViewController {
     @objc private func saveAndRestart() {
         guard let project = loadedProject else { return }
         let alert = NSAlert()
-        alert.messageText = "Save & Restart"
-        alert.informativeText = "Enregistrer le fichier et relancer '\(project.name)' avec docker compose up -d --build ?"
-        alert.addButton(withTitle: "Confirmer")
-        alert.addButton(withTitle: "Annuler")
+        alert.messageText = L.t("Enregistrer et relancer", "Save & Restart")
+        alert.informativeText = L.t("Enregistrer le fichier et relancer '\(project.name)' avec docker compose up -d --build ?", "Save the file and restart '\(project.name)' with docker compose up -d --build?")
+        alert.addButton(withTitle: L.t("Confirmer", "Confirm"))
+        alert.addButton(withTitle: L.t("Annuler", "Cancel"))
         guard alert.runModal() == .alertFirstButtonReturn else { return }
         saving = true
         let content = textView.string
@@ -221,7 +225,7 @@ final class ComposeEditorViewController: NSViewController {
                 DispatchQueue.main.async {
                     self.saving = false
                     let err = NSAlert()
-                    err.messageText = "Erreur"
+                    err.messageText = L.t("Erreur", "Error")
                     err.informativeText = error.localizedDescription
                     err.runModal()
                 }

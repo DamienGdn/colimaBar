@@ -476,11 +476,7 @@ final class StatusBarController {
     }
 
     @objc private func switchInstance(_ sender: NSMenuItem) {
-        let name = sender.title
-        guard name != ColimaConfig.activeInstanceName else { return }
-        ColimaConfig.activeInstanceName = name
-        manager.stopPolling()
-        manager.startPolling()
+        store.switchInstance(to: sender.title)
     }
 
     func showLastError(_ message: String) {
@@ -551,28 +547,7 @@ final class StatusBarController {
         }
     }
 
-    private func restartWithNewConfig() {
-        manager.stopColima(onTransition: { [weak self] state in
-            self?.store.apply(state)
-        }, completion: { [weak self] result in
-            guard let self else { return }
-            switch result {
-            case .success:
-                self.manager.startColima(onTransition: { [weak self] state in
-                    self?.store.apply(state)
-                }, completion: { [weak self] result in
-                    switch result {
-                    case .success(let state):
-                        self?.store.apply(state)
-                    case .failure(let error):
-                        (NSApp.delegate as? AppDelegate)?.showError(error.localizedDescription)
-                    }
-                })
-            case .failure(let error):
-                (NSApp.delegate as? AppDelegate)?.showError(error.localizedDescription)
-            }
-        })
-    }
+    private func restartWithNewConfig() { store.restartColima() }
 
     @objc private func openContainersPanel() {
         guard let button = statusItem.button else { return }

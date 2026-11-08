@@ -23,7 +23,9 @@ final class EnvVarsViewController: NSViewController {
     }
 
     override func loadView() {
-        view = NSView(frame: NSRect(x: 0, y: 0, width: 500, height: 320))
+        let v = ThemedView(fill: Theme.Tokens.bg)
+        v.frame = NSRect(x: 0, y: 0, width: 500, height: 320)
+        view = v
     }
 
     override func viewDidLoad() {
@@ -35,7 +37,7 @@ final class EnvVarsViewController: NSViewController {
     private func buildUI() {
         headerLbl = NSTextField(labelWithString: containerName)
         headerLbl.font      = .boldSystemFont(ofSize: 13)
-        headerLbl.textColor = .labelColor
+        headerLbl.textColor = Theme.Tokens.text
         headerLbl.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(headerLbl)
 
@@ -45,6 +47,8 @@ final class EnvVarsViewController: NSViewController {
         tableView.delegate   = self
         tableView.dataSource = self
         tableView.headerView = NSTableHeaderView()
+        Theme.styleTable(tableView)
+        tableView.rowHeight = 20
 
         for (id, title, width) in [
             ("key",   L.t("Clé", "Key"),       180.0),
@@ -59,13 +63,12 @@ final class EnvVarsViewController: NSViewController {
         scrollView.documentView        = tableView
         scrollView.hasVerticalScroller = true
         scrollView.autohidesScrollers  = true
-        scrollView.borderType          = .bezelBorder
-        scrollView.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(scrollView)
+        let card = Theme.card(wrapping: scrollView)
+        view.addSubview(card)
 
         statusLbl = NSTextField(labelWithString: "")
         statusLbl.font        = .systemFont(ofSize: 11)
-        statusLbl.textColor   = .secondaryLabelColor
+        statusLbl.textColor   = Theme.Tokens.text3
         statusLbl.alignment   = .center
         statusLbl.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(statusLbl)
@@ -82,10 +85,10 @@ final class EnvVarsViewController: NSViewController {
             headerLbl.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 12),
             headerLbl.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor, constant: -12),
 
-            scrollView.topAnchor.constraint(equalTo: headerLbl.bottomAnchor, constant: 6),
-            scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 8),
-            scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -8),
-            scrollView.bottomAnchor.constraint(equalTo: copyAllBtn.topAnchor, constant: -6),
+            card.topAnchor.constraint(equalTo: headerLbl.bottomAnchor, constant: 6),
+            card.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 8),
+            card.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -8),
+            card.bottomAnchor.constraint(equalTo: copyAllBtn.topAnchor, constant: -6),
 
             statusLbl.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             statusLbl.centerYAnchor.constraint(equalTo: scrollView.centerYAnchor),
@@ -131,10 +134,10 @@ extension EnvVarsViewController: NSTableViewDataSource, NSTableViewDelegate {
         switch id {
         case "key":
             cell.textField?.stringValue = pair.key
-            cell.textField?.textColor   = .labelColor
+            cell.textField?.textColor   = Theme.Tokens.text
         case "value":
             cell.textField?.stringValue = pair.value
-            cell.textField?.textColor   = .secondaryLabelColor
+            cell.textField?.textColor   = Theme.Tokens.text2
         default: break
         }
         return cell

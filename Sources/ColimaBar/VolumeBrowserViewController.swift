@@ -11,9 +11,10 @@ final class VolumeBrowserViewController: NSViewController {
     private let pathLabel = NSTextField(labelWithString: "/")
     private let tableView = NSTableView()
     private let scrollView = NSScrollView()
-    private let downloadButton = NSButton(title: "Download", target: nil, action: nil)
-    private let uploadButton = NSButton(title: "Upload", target: nil, action: nil)
-    private let emptyLabel = NSTextField(labelWithString: "Aucun conteneur en cours d'exécution")
+    private var card: ThemedView!
+    private let downloadButton = NSButton(title: L.t("Télécharger", "Download"), target: nil, action: nil)
+    private let uploadButton = NSButton(title: L.t("Envoyer", "Upload"), target: nil, action: nil)
+    private let emptyLabel = NSTextField(labelWithString: L.t("Aucun conteneur en cours d'exécution", "No running container"))
 
     // State
     private var containers: [DockerContainer] = []
@@ -27,7 +28,7 @@ final class VolumeBrowserViewController: NSViewController {
     }
     private var currentPath: String { pathStack.last ?? "/" }
 
-    override func loadView() { view = NSView() }
+    override func loadView() { view = ThemedView(fill: Theme.Tokens.bg) }
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -45,7 +46,7 @@ final class VolumeBrowserViewController: NSViewController {
         // Keep the user's container (and path) across the periodic state refreshes.
         if let previous, names.contains(previous) { containerPicker.selectItem(withTitle: previous) }
         emptyLabel.isHidden = !containers.isEmpty
-        scrollView.isHidden = containers.isEmpty
+        card?.isHidden = containers.isEmpty
         downloadButton.isEnabled = !containers.isEmpty
         uploadButton.isEnabled = !containers.isEmpty
         if !containers.isEmpty { reload() }
@@ -96,16 +97,16 @@ final class VolumeBrowserViewController: NSViewController {
         backButton.translatesAutoresizingMaskIntoConstraints = false
 
         pathLabel.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
-        pathLabel.textColor = .secondaryLabelColor
+        pathLabel.textColor = Theme.Tokens.text2
         pathLabel.translatesAutoresizingMaskIntoConstraints = false
 
         // Table
         let nameCol = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("name"))
-        nameCol.title = "Name"; nameCol.width = 280
+        nameCol.title = L.t("Nom", "Name"); nameCol.width = 280
         let sizeCol = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("size"))
-        sizeCol.title = "Size"; sizeCol.width = 80
+        sizeCol.title = L.t("Taille", "Size"); sizeCol.width = 80
         let permCol = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("perm"))
-        permCol.title = "Permissions"; permCol.width = 120
+        permCol.title = L.t("Permissions", "Permissions"); permCol.width = 120
         tableView.addTableColumn(nameCol)
         tableView.addTableColumn(sizeCol)
         tableView.addTableColumn(permCol)
@@ -113,11 +114,11 @@ final class VolumeBrowserViewController: NSViewController {
         tableView.dataSource = self
         tableView.doubleAction = #selector(rowDoubleClicked)
         tableView.target = self
+        Theme.styleTable(tableView)
 
         scrollView.documentView = tableView
         scrollView.hasVerticalScroller = true
-        scrollView.borderType = .bezelBorder
-        scrollView.translatesAutoresizingMaskIntoConstraints = false
+        card = Theme.card(wrapping: scrollView)
 
         downloadButton.bezelStyle = .rounded
         downloadButton.target = self
@@ -132,11 +133,11 @@ final class VolumeBrowserViewController: NSViewController {
         uploadButton.translatesAutoresizingMaskIntoConstraints = false
 
         emptyLabel.font = .systemFont(ofSize: 14)
-        emptyLabel.textColor = .secondaryLabelColor
+        emptyLabel.textColor = Theme.Tokens.text3
         emptyLabel.alignment = .center
         emptyLabel.translatesAutoresizingMaskIntoConstraints = false
 
-        let subviews: [NSView] = [containerPicker, backButton, pathLabel, scrollView, downloadButton, uploadButton, emptyLabel]
+        let subviews: [NSView] = [containerPicker, backButton, pathLabel, card, downloadButton, uploadButton, emptyLabel]
         for sub in subviews {
             view.addSubview(sub)
         }
@@ -154,14 +155,14 @@ final class VolumeBrowserViewController: NSViewController {
             pathLabel.leadingAnchor.constraint(equalTo: backButton.trailingAnchor, constant: 8),
             pathLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -12),
 
-            scrollView.topAnchor.constraint(equalTo: containerPicker.bottomAnchor, constant: 8),
-            scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 12),
-            scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -12),
-            scrollView.bottomAnchor.constraint(equalTo: downloadButton.topAnchor, constant: -8),
+            card.topAnchor.constraint(equalTo: containerPicker.bottomAnchor, constant: 8),
+            card.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 12),
+            card.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -12),
+            card.bottomAnchor.constraint(equalTo: downloadButton.topAnchor, constant: -8),
 
             downloadButton.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -12),
             downloadButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 12),
-            downloadButton.widthAnchor.constraint(equalToConstant: 100),
+            downloadButton.widthAnchor.constraint(equalToConstant: 120),
 
             uploadButton.centerYAnchor.constraint(equalTo: downloadButton.centerYAnchor),
             uploadButton.leadingAnchor.constraint(equalTo: downloadButton.trailingAnchor, constant: 8),
@@ -244,8 +245,10 @@ extension VolumeBrowserViewController: NSTableViewDelegate {
             lbl.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
             lbl.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -4),
         ])
+        Theme.style(lbl, color: Theme.Tokens.text2)
         switch tableColumn?.identifier.rawValue {
         case "name":
+            Theme.style(lbl, color: Theme.Tokens.text)
             let icon = entry.isDirectory ? "📁 " : "📄 "
             lbl.stringValue = icon + entry.name
         case "size":
@@ -253,6 +256,7 @@ extension VolumeBrowserViewController: NSTableViewDelegate {
         case "perm":
             lbl.stringValue = entry.permissions
             lbl.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
+            lbl.textColor = Theme.Tokens.text3
         default: break
         }
         return cell

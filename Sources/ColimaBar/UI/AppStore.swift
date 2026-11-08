@@ -137,6 +137,36 @@ final class AppStore: ObservableObject {
         })
     }
 
+    /// Stops then starts Colima to apply a new config (CPU / memory / disk).
+    func restartColima() {
+        manager.stopColima(onTransition: { [weak self] state in
+            self?.apply(state)
+        }, completion: { [weak self] result in
+            guard let self else { return }
+            switch result {
+            case .success:
+                self.manager.startColima(onTransition: { [weak self] state in
+                    self?.apply(state)
+                }, completion: { [weak self] result in
+                    switch result {
+                    case .success(let state): self?.apply(state)
+                    case .failure(let error): self?.delegate?.showError(error.localizedDescription)
+                    }
+                })
+            case .failure(let error):
+                self.delegate?.showError(error.localizedDescription)
+            }
+        })
+    }
+
+    /// Makes `name` the active Colima instance and restarts polling on it.
+    func switchInstance(to name: String) {
+        guard name != ColimaConfig.activeInstanceName else { return }
+        ColimaConfig.activeInstanceName = name
+        manager.stopPolling()
+        manager.startPolling()
+    }
+
     // MARK: - Containers
 
     func start(_ name: String) { containerAction { self.manager.startContainer(name, completion: $0) } }

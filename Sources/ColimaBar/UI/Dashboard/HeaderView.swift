@@ -52,6 +52,7 @@ struct HeaderView: View {
             iconButton("arrow.clockwise", L.t("Rafraîchir", "Refresh")) { store.refreshVisible() }
 
             Menu {
+                Button(L.t("Réglages…", "Settings…")) { SettingsWindowController.shared.show(store: store) }
                 Button(L.t("À propos", "About")) { (NSApp.delegate as? AppDelegate)?.showAbout() }
                 Divider()
                 Button(L.t("Quitter", "Quit")) { NSApp.terminate(nil) }

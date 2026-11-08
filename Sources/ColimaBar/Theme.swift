@@ -124,3 +124,86 @@ extension Color {
     static let tkRed         = Color(nsColor: Theme.Tokens.red)
     static let tkRedSoft     = Color(nsColor: Theme.Tokens.redSoft)
 }
+
+// MARK: - AppKit helpers (token-based, appearance-aware)
+
+/// Layer-backed view whose fill/border are dynamic token colors, re-resolved on every appearance change.
+final class ThemedView: NSView {
+    var fill: NSColor? { didSet { needsDisplay = true } }
+    var borderColor: NSColor? { didSet { needsDisplay = true } }
+    var borderWidth: CGFloat = 0 { didSet { needsDisplay = true } }
+    var cornerRadius: CGFloat = 0 { didSet { needsDisplay = true } }
+
+    init(fill: NSColor? = nil, border: NSColor? = nil, radius: CGFloat = 0) {
+        self.fill = fill
+        self.borderColor = border
+        self.borderWidth = border == nil ? 0 : 1
+        self.cornerRadius = radius
+        super.init(frame: .zero)
+        wantsLayer = true
+        layer?.masksToBounds = radius > 0
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) not supported") }
+
+    override var wantsUpdateLayer: Bool { true }
+
+    override func updateLayer() {
+        guard let layer else { return }
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            layer.backgroundColor = fill?.cgColor
+            layer.borderColor = borderColor?.cgColor
+        }
+        layer.borderWidth = borderWidth
+        layer.cornerRadius = cornerRadius
+        layer.masksToBounds = cornerRadius > 0
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        needsDisplay = true
+    }
+}
+
+extension Theme {
+    /// Surface card (rounded, bordered) wrapping a scroll view; the table/text inside draws on `surface`.
+    static func card(wrapping scroll: NSScrollView) -> ThemedView {
+        let card = ThemedView(fill: Tokens.surface, border: Tokens.border, radius: radius)
+        scroll.drawsBackground = false
+        scroll.borderType = .noBorder
+        scroll.translatesAutoresizingMaskIntoConstraints = false
+        card.addSubview(scroll)
+        NSLayoutConstraint.activate([
+            scroll.topAnchor.constraint(equalTo: card.topAnchor),
+            scroll.leadingAnchor.constraint(equalTo: card.leadingAnchor),
+            scroll.trailingAnchor.constraint(equalTo: card.trailingAnchor),
+            scroll.bottomAnchor.constraint(equalTo: card.bottomAnchor),
+        ])
+        card.translatesAutoresizingMaskIntoConstraints = false
+        return card
+    }
+
+    /// Transparent table sitting on a card.
+    static func styleTable(_ table: NSTableView) {
+        table.backgroundColor = .clear
+        table.gridColor = Tokens.border
+        table.usesAlternatingRowBackgroundColors = false
+        table.intercellSpacing = NSSize(width: 8, height: 2)
+        table.rowHeight = 26
+    }
+
+    /// Token-colored label (system font unless a font is given).
+    static func style(_ label: NSTextField, color: NSColor = Tokens.text,
+                      font: NSFont = .systemFont(ofSize: 12)) {
+        label.textColor = color
+        label.font = font
+    }
+
+    /// Thin separator line using the border token.
+    static func separator() -> ThemedView {
+        let v = ThemedView(fill: Tokens.border)
+        v.translatesAutoresizingMaskIntoConstraints = false
+        v.heightAnchor.constraint(equalToConstant: 1).isActive = true
+        return v
+    }
+}
