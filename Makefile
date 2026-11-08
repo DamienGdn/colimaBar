@@ -2,7 +2,7 @@ BINARY      = ColimaBar
 APP         = ColimaBar.app
 INSTALL_DIR = /Applications
 
-.PHONY: build bundle install clean
+.PHONY: build bundle install open test icons clean
 
 build:
 	swift build -c release
@@ -25,6 +25,16 @@ install: bundle
 open: install
 	open $(INSTALL_DIR)/$(APP)
 
+test:
+	swift run ColimaBarTests
+
+# Regenerate app + menu bar icons from the SVG sources in design/.
+# Requires Node.js with Playwright (npx playwright install chromium).
+icons:
+	node scripts/render-icons.mjs
+	iconutil -c icns build/AppIcon.iconset -o Resources/AppIcon.icns
+	@echo "Icons updated."
+
 clean:
 	swift package clean
-	rm -rf $(APP)
+	rm -rf $(APP) build

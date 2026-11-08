@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import ColimaBarCore
 
 final class LogsWindowController: NSWindowController {
 
@@ -40,15 +41,21 @@ final class LogsWindowController: NSWindowController {
         containerLabel.translatesAutoresizingMaskIntoConstraints = false
         cv.addSubview(containerLabel)
 
-        followBtn = NSButton(title: "■ Stop", target: self, action: #selector(toggleFollow))
+        followBtn = NSButton(title: "", target: self, action: #selector(toggleFollow))
         followBtn.bezelStyle  = .rounded
         followBtn.controlSize = .small
+        followBtn.imagePosition  = .imageLeading
+        followBtn.imageHugsTitle = true
+        updateFollowButton(following: true)
         followBtn.translatesAutoresizingMaskIntoConstraints = false
         cv.addSubview(followBtn)
 
-        clearBtn = NSButton(title: "Clear", target: self, action: #selector(clearAction))
+        clearBtn = NSButton(title: L.t("Effacer", "Clear"), target: self, action: #selector(clearAction))
         clearBtn.bezelStyle  = .rounded
         clearBtn.controlSize = .small
+        clearBtn.image          = Theme.symbol("trash", nil, pointSize: 11, weight: .medium)
+        clearBtn.imagePosition  = .imageLeading
+        clearBtn.imageHugsTitle = true
         clearBtn.translatesAutoresizingMaskIntoConstraints = false
         cv.addSubview(clearBtn)
 
@@ -104,7 +111,7 @@ final class LogsWindowController: NSWindowController {
 
     private func startStreaming() {
         isFollowing     = true
-        followBtn.title = "■ Stop"
+        updateFollowButton(following: true)
 
         let proc = Process()
         proc.executableURL = URL(fileURLWithPath: dockerPath)
@@ -123,7 +130,7 @@ final class LogsWindowController: NSWindowController {
         proc.terminationHandler = { [weak self] _ in
             DispatchQueue.main.async {
                 self?.isFollowing      = false
-                self?.followBtn?.title = "▶ Follow"
+                self?.updateFollowButton(following: false)
                 if let data = try? pipe.fileHandleForReading.readToEnd(),
                    !data.isEmpty,
                    let str = String(data: data, encoding: .utf8) {
@@ -138,8 +145,14 @@ final class LogsWindowController: NSWindowController {
         } catch {
             appendText("Error starting docker logs: \(error.localizedDescription)\n")
             isFollowing     = false
-            followBtn.title = "▶ Follow"
+            updateFollowButton(following: false)
         }
+    }
+
+    private func updateFollowButton(following: Bool) {
+        followBtn?.title = following ? L.t("Arrêter", "Stop") : L.t("Suivre", "Follow")
+        followBtn?.image = Theme.symbol(following ? "stop.fill" : "play.fill", nil,
+                                        pointSize: 11, weight: .medium)
     }
 
     private func stopStreaming() {
@@ -147,7 +160,7 @@ final class LogsWindowController: NSWindowController {
         process?.waitUntilExit()
         process        = nil
         isFollowing    = false
-        followBtn?.title = "▶ Follow"
+        updateFollowButton(following: false)
     }
 
     private func appendText(_ text: String) {

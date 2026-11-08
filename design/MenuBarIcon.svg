@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 44 44" width="44" height="44">
+  <!-- Template glyph: pure black on transparent, macOS tints it for light/dark menu bars -->
+  <defs>
+    <mask id="cut">
+      <rect width="44" height="44" fill="#fff"/>
+      <!-- eye -->
+      <circle cx="11.5" cy="12" r="1.6" fill="#000"/>
+      <!-- container ribs -->
+      <rect x="24.5" y="14.7" width="1.8" height="5" rx="0.9" fill="#000"/>
+      <rect x="28.6" y="14.7" width="1.8" height="5" rx="0.9" fill="#000"/>
+      <rect x="32.7" y="14.7" width="1.8" height="5" rx="0.9" fill="#000"/>
+      <!-- gap between container and back -->
+      <rect x="20.5" y="21.8" width="17" height="1.8" fill="#000"/>
+    </mask>
+  </defs>
+  <g fill="#000" mask="url(#cut)">
+    <!-- ear -->
+    <path d="M14.2 9 C 13.4 6.2, 14 4, 15.6 2.8 C 17.4 4.4, 17.8 6.8, 17.4 9 Z"/>
+    <!-- head -->
+    <rect x="5" y="7.5" width="14.5" height="8.5" rx="4.25"/>
+    <!-- neck -->
+    <rect x="12" y="8" width="7.5" height="22" rx="3.75"/>
+    <!-- body -->
+    <rect x="12" y="23.5" width="27" height="11" rx="5.5"/>
+    <!-- tail -->
+    <rect x="37" y="21" width="3.6" height="7" rx="1.8" transform="rotate(25 38.8 24.5)"/>
+    <!-- legs -->
+    <rect x="13.5" y="30" width="3.8" height="11" rx="1.9"/>
+    <rect x="19" y="30" width="3.8" height="11" rx="1.9"/>
+    <rect x="28.5" y="30" width="3.8" height="11" rx="1.9"/>
+    <rect x="34" y="30" width="3.8" height="11" rx="1.9"/>
+    <!-- container -->
+    <rect x="21.5" y="12.4" width="16" height="9.6" rx="2"/>
+  </g>
+</svg>
