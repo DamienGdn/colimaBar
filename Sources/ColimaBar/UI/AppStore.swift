@@ -36,15 +36,9 @@ final class AppStore: ObservableObject {
         }
     }
 
+    /// Containers grouped by compose stack, filtered by `search` (see `ContainerGrouping.filtered`).
     var groups: (stacks: [StackGroup], standalone: [DockerContainer]) {
-        let grouped = ContainerGrouping.group(state.containers, stats: state.containerStats)
-        let q = search.trimmingCharacters(in: .whitespaces).lowercased()
-        guard !q.isEmpty else { return grouped }
-        func matches(_ c: DockerContainer) -> Bool {
-            c.name.lowercased().contains(q) || c.image.lowercased().contains(q)
-        }
-        let stacks = grouped.stacks.filter { $0.name.lowercased().contains(q) || $0.containers.contains(where: matches) }
-        return (stacks, grouped.standalone.filter(matches))
+        ContainerGrouping.filtered(state.containers, stats: state.containerStats, query: search)
     }
 
     // MARK: - State
@@ -127,6 +121,35 @@ final class AppStore: ObservableObject {
         if selectedContainer == name { selectedContainer = nil }
     }
 
+    func startAll(_ names: [String]) { names.forEach(start) }
+    func stopAll(_ names: [String]) { names.forEach(stop) }
+
+    func setRestartPolicy(_ policy: String, for name: String, completion: @escaping (Bool) -> Void) {
+        manager.setRestartPolicy(policy, container: name) { [weak self] result in
+            switch result {
+            case .success:
+                self?.refresh()
+                completion(true)
+            case .failure(let error):
+                self?.fail(error)
+                completion(false)
+            }
+        }
+    }
+
+    func fetchEnvVars(_ name: String, completion: @escaping ([String]) -> Void) {
+        manager.fetchEnvVars(container: name, completion: completion)
+    }
+
+    /// Opens the Logs section streaming this container.
+    func showLogs(for name: String) {
+        modules.logs.showLogs(for: name)
+        route = .section
+        section = .logs
+    }
+
+    func openShell(_ name: String) { TerminalLauncher.promptShell(container: name) }
+
     func pruneDocker(completion: (() -> Void)? = nil) {
         manager.pruneDocker { [weak self] result in
             switch result {
@@ -149,11 +172,14 @@ final class AppStore: ObservableObject {
         }
     }
 
-    func inspect(_ name: String, completion: @escaping (String) -> Void) {
+    /// `nil` on failure (the error is already surfaced).
+    func inspect(_ name: String, completion: @escaping (String?) -> Void) {
         manager.inspectContainer(name) { [weak self] result in
             switch result {
             case .success(let json): completion(json)
-            case .failure(let error): self?.fail(error)
+            case .failure(let error):
+                self?.fail(error)
+                completion(nil)
             }
         }
     }
@@ -175,10 +201,7 @@ final class AppStore: ObservableObject {
     }
 
     func upgradeColima() {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
-        process.arguments = ["-e", "tell application \"Terminal\" to do script \"brew upgrade colima\""]
-        try? process.run()
+        TerminalLauncher.run("brew upgrade colima")
     }
 
     // MARK: - Navigation

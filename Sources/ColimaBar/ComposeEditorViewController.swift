@@ -16,6 +16,8 @@ final class ComposeEditorViewController: NSViewController {
     // State
     private var projects: [ComposeProject] = []
     private var originalContent = ""
+    /// Project whose file is currently in the text view.
+    private var loadedProject: ComposeProject?
     private var isDirty = false {
         didSet { updateDirtyIndicator() }
     }
@@ -35,11 +37,18 @@ final class ComposeEditorViewController: NSViewController {
 
     // MARK: - Public
 
+    /// Called on every poll: only rebuilds when the project list changed, and keeps the
+    /// selected project (and unsaved edits) when it is still there.
     func updateContainers(_ containers: [DockerContainer]) {
         if !isViewLoaded { _ = view }
-        projects = DockerComposeService.listProjects(from: containers)
+        let newProjects = DockerComposeService.listProjects(from: containers)
+            .sorted { $0.name < $1.name }
+        guard newProjects != projects else { return }
+        let previous = loadedProject
+        projects = newProjects
         projectPicker.removeAllItems()
         if projects.isEmpty {
+            loadedProject = nil
             emptyLabel.isHidden = false
             scrollView.isHidden = true
             saveRestartButton.isEnabled = false
@@ -49,6 +58,20 @@ final class ComposeEditorViewController: NSViewController {
         emptyLabel.isHidden = true
         scrollView.isHidden = false
         projectPicker.addItems(withTitles: projects.map { $0.name })
+        if let previous, let idx = projects.firstIndex(of: previous) {
+            projectPicker.selectItem(at: idx)
+        } else {
+            loadSelectedProject()
+        }
+    }
+
+    /// Selects a project by name (asks before dropping unsaved edits).
+    func showProject(named name: String) {
+        if !isViewLoaded { _ = view }
+        guard let idx = projects.firstIndex(where: { $0.name == name }),
+              idx != projectPicker.indexOfSelectedItem else { return }
+        if isDirty && !confirmDiscard() { return }
+        projectPicker.selectItem(at: idx)
         loadSelectedProject()
     }
 
@@ -120,6 +143,7 @@ final class ComposeEditorViewController: NSViewController {
 
     private func loadSelectedProject() {
         guard let project = selectedProject else { return }
+        loadedProject = project
         let content = (try? composeService.readComposeFile(at: project.configFile)) ?? ""
         originalContent = content
         textView.string = content
@@ -131,16 +155,22 @@ final class ComposeEditorViewController: NSViewController {
         dirtyIndicator.isHidden = !isDirty
     }
 
+    private func confirmDiscard() -> Bool {
+        let alert = NSAlert()
+        alert.messageText = "Changements non sauvegardés"
+        alert.informativeText = "Changer de projet abandonnera les modifications en cours."
+        alert.addButton(withTitle: "Continuer")
+        alert.addButton(withTitle: "Annuler")
+        return alert.runModal() == .alertFirstButtonReturn
+    }
+
     @objc private func projectChanged() {
-        if isDirty {
-            let alert = NSAlert()
-            alert.messageText = "Changements non sauvegardés"
-            alert.informativeText = "Changer de projet abandonnera les modifications en cours."
-            alert.addButton(withTitle: "Continuer")
-            alert.addButton(withTitle: "Annuler")
-            guard alert.runModal() == .alertFirstButtonReturn else {
-                return
+        if isDirty && !confirmDiscard() {
+            // Keep the picker on the project whose edits are still in the editor.
+            if let loadedProject, let idx = projects.firstIndex(of: loadedProject) {
+                projectPicker.selectItem(at: idx)
             }
+            return
         }
         loadSelectedProject()
     }

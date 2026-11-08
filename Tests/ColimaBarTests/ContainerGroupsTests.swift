@@ -54,3 +54,36 @@ func test_metricHistoryStore_prune() {
     checkEqual(s.cpu["a"]?.values.count, 2, "count")
     checkEqual(s.mem["a"]?.values.count, 2, "mem count")
 }
+
+func test_filteredGroups_stackNameMatchKeepsAllMembers() {
+    let cs = [ctr("shop-web", .running, project: "shop"), ctr("shop-db", .exited, project: "shop"), ctr("solo", .running)]
+    let r = ContainerGrouping.filtered(cs, stats: [:], query: "SHOP")
+    checkEqual(r.stacks.first?.containers.count, 2, "all members kept")
+    checkEqual(r.stacks.first?.status, StackStatus.partial(running: 1, total: 2), "status unchanged")
+    check(r.standalone.isEmpty, "solo filtered out")
+}
+
+func test_filteredGroups_memberMatchRebuildsStack() {
+    let u = ResourceUsage(cpuPercent: 2, memUsedMiB: 10, memTotalGiB: 8)
+    let cs = [ctr("web", .running, project: "shop"), ctr("db", .exited, project: "shop"), ctr("cache", .running, project: "shop")]
+    let r = ContainerGrouping.filtered(cs, stats: ["web": u, "cache": u], query: "we")
+    checkEqual(r.stacks.first?.containers.map { $0.name }, ["web"], "only matching member")
+    checkEqual(r.stacks.first?.status, StackStatus.allRunning, "status recomputed")
+    checkEqual(r.stacks.first?.cpuPercent, 2, "cpu recomputed")
+    checkEqual(r.stacks.first?.memUsedMiB, 10, "mem recomputed")
+}
+
+func test_filteredGroups_noMatchDropsStack_emptyQueryKeepsAll() {
+    let cs = [ctr("web", .running, project: "shop"), ctr("solo", .running)]
+    let none = ContainerGrouping.filtered(cs, stats: [:], query: "zzz")
+    check(none.stacks.isEmpty && none.standalone.isEmpty, "nothing matches")
+    let all = ContainerGrouping.filtered(cs, stats: [:], query: "  ")
+    checkEqual(all.stacks.count, 1, "blank query keeps stacks")
+    checkEqual(all.standalone.count, 1, "blank query keeps standalone")
+}
+
+func test_filteredGroups_matchesComposeService() {
+    let c = DockerContainer(id: "1", name: "x-1", state: .running, status: "", image: "img", ports: "",
+                            labels: "com.docker.compose.project=p,com.docker.compose.service=api")
+    checkEqual(ContainerGrouping.filtered([c], stats: [:], query: "api").stacks.count, 1, "service match")
+}

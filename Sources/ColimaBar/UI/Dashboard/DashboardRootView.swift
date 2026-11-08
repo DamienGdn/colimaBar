@@ -45,6 +45,14 @@ struct DashboardRootView: View {
             }
         } else {
             switch store.section {
+            case .compose:
+                if case .composeEditor(let stack) = store.route {
+                    composeEditor(stack: stack)
+                } else {
+                    ContainersSectionView(mode: .grouped)
+                }
+            case .containers:
+                ContainersSectionView(mode: .flat)
             case .logs:
                 HostedVC(make: { store.modules.logs })
             case .snapshots:
@@ -65,6 +73,27 @@ struct DashboardRootView: View {
                 .foregroundColor(.tkText2)
             Button(L.t("Démarrer", "Start")) { store.startColima() }
                 .buttonStyle(.borderedProminent).tint(.tkAccent)
+        }
+    }
+
+    private func composeEditor(stack: String) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 10) {
+                Button(L.t("← Retour", "← Back")) { store.route = .section }
+                    .buttonStyle(.bordered)
+                    .keyboardShortcut("[", modifiers: .command)
+                    .help(L.t("Retour au tableau (⌘[)", "Back to the table (⌘[)"))
+                Text(stack).font(.system(size: 14, weight: .semibold)).foregroundColor(.tkText)
+                Spacer()
+            }
+            .padding(.horizontal, 16).padding(.vertical, 10)
+            Divider()
+            HostedVC(make: {
+                let vc = store.modules.composeEditor
+                vc.showProject(named: stack)
+                return vc
+            })
+            .id(stack)
         }
     }
 

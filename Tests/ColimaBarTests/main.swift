@@ -88,6 +88,10 @@ test_groupContainers_statusAllRunning()
 test_groupContainers_missingStats()
 test_metricHistory_capacity()
 test_metricHistoryStore_prune()
+test_filteredGroups_stackNameMatchKeepsAllMembers()
+test_filteredGroups_memberMatchRebuildsStack()
+test_filteredGroups_noMatchDropsStack_emptyQueryKeepsAll()
+test_filteredGroups_matchesComposeService()
 
 print("\n\(_passed) passed, \(_failed) failed")
 if _failed > 0 {

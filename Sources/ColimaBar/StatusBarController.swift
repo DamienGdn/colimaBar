@@ -100,8 +100,8 @@ final class StatusBarController {
         containersPanelVC.onLogs = { [weak self] name in
             self?.openLogsTerminal(containerName: name)
         }
-        containersPanelVC.onShell = { [weak self] name, command in
-            self?.openShellTerminal(containerName: name, command: command)
+        containersPanelVC.onShell = { name, command in
+            TerminalLauncher.openShell(container: name, command: command)
         }
         containersPanelVC.onFetchImages = { [weak self] completion in
             self?.manager.fetchImages(completion: completion)
@@ -127,8 +127,8 @@ final class StatusBarController {
         containersPanelVC.onSetRestartPolicy = { [weak self] policy, name, completion in
             self?.manager.setRestartPolicy(policy, container: name, completion: completion)
         }
-        containersPanelVC.onInspect = { [weak self] name in
-            self?.runInTerminal("docker inspect \(name)")
+        containersPanelVC.onInspect = { name in
+            TerminalLauncher.run("docker inspect \(name)")
         }
         containersPanelVC.onFetchEnvVars = { [weak self] name, completion in
             self?.manager.fetchEnvVars(container: name, completion: completion)
@@ -588,18 +588,6 @@ final class StatusBarController {
 
     private func openLogsTerminal(containerName name: String) {
         logsWindowController.show(containerName: name, dockerPath: "/opt/homebrew/bin/docker")
-    }
-
-    private func openShellTerminal(containerName name: String, command: String) {
-        runInTerminal("docker exec -it \(name) \(command)")
-    }
-
-    private func runInTerminal(_ command: String) {
-        let script = "tell application \"Terminal\" to do script \"\(command)\""
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
-        process.arguments = ["-e", script]
-        try? process.run()
     }
 
     func showUpdateAvailable(version: String) {
