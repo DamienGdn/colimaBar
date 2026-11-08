@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import ColimaBarCore
 
 /// Settings window: instance picker on top, then the shared `SettingsPanelViewController`.
@@ -7,6 +8,8 @@ final class SettingsWindowController: NSWindowController {
     static let shared = SettingsWindowController()
 
     private weak var store: AppStore?
+    private weak var content: SettingsContentViewController?
+    private var stateSub: AnyCancellable?
 
     private init() {
         let window = NSWindow(
@@ -17,6 +20,7 @@ final class SettingsWindowController: NSWindowController {
         window.isReleasedWhenClosed = false
         window.title = L.t("Réglages", "Settings")
         super.init(window: window)
+        window.delegate = self
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) not supported") }
@@ -27,6 +31,12 @@ final class SettingsWindowController: NSWindowController {
             rebuildContent(store: store)
             window?.center()
         }
+        // Keep the panel in sync with the instance / Colima state while the window is open.
+        stateSub = store.$state
+            .map { state -> Bool in if case .running = state.colima { return true } else { return false } }
+            .removeDuplicates()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.content?.resyncPanel() }
         NSApp.activate(ignoringOtherApps: true)
         showWindow(nil)
         window?.makeKeyAndOrderFront(nil)
@@ -40,8 +50,16 @@ final class SettingsWindowController: NSWindowController {
             self.window?.title = L.t("Réglages", "Settings")
             self.rebuildContent(store: store)
         }
+        self.content = content
         window?.contentViewController = content
         window?.title = L.t("Réglages", "Settings")
+    }
+}
+
+extension SettingsWindowController: NSWindowDelegate {
+    func windowWillClose(_ notification: Notification) {
+        stateSub?.cancel()
+        stateSub = nil
     }
 }
 
@@ -142,11 +160,9 @@ private final class SettingsContentViewController: NSViewController {
         guard let name = instancePicker.titleOfSelectedItem else { return }
         store.switchInstance(to: name)
         resyncPanel()
-        // State of the new instance arrives with the next poll: refresh again then.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in self?.resyncPanel() }
     }
 
-    private func resyncPanel() {
+    func resyncPanel() {
         if case .running = store.state.colima { panel.isColimaRunning = true } else { panel.isColimaRunning = false }
         panel.syncControls()
     }
