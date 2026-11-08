@@ -1,6 +1,6 @@
 .build/
 build/
-ColimaBar.app
+ColimaBar*.app
 .DS_Store
 *.o
 *.d
