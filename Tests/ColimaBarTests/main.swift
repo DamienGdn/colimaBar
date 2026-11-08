@@ -81,6 +81,14 @@ test_removeContainer_failure_propagatesMessage()
 test_pruneImages_args()
 test_inspectContainer_returnsJSON()
 
+test_groupContainers_empty()
+test_groupContainers_stacksAndStandalone()
+test_groupContainers_statusPartial()
+test_groupContainers_statusAllRunning()
+test_groupContainers_missingStats()
+test_metricHistory_capacity()
+test_metricHistoryStore_prune()
+
 print("\n\(_passed) passed, \(_failed) failed")
 if _failed > 0 {
     exit(1)

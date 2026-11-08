@@ -12,6 +12,12 @@ public struct ResourceUsage: Equatable {
     public let memUsedMiB: Double
     public let memTotalGiB: Double
 
+    public init(cpuPercent: Double, memUsedMiB: Double, memTotalGiB: Double) {
+        self.cpuPercent = cpuPercent
+        self.memUsedMiB = memUsedMiB
+        self.memTotalGiB = memTotalGiB
+    }
+
     public var memUsedFormatted: String {
         memUsedMiB >= 1024
             ? String(format: "%.1f GB", memUsedMiB / 1024)
