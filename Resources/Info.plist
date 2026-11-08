@@ -6,10 +6,16 @@
     <string>com.local.ColimaBar</string>
     <key>CFBundleName</key>
     <string>ColimaBar</string>
+    <key>CFBundleDisplayName</key>
+    <string>ColimaBar</string>
     <key>CFBundleVersion</key>
-    <string>1.0</string>
+    <string>1.10.0</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.0</string>
+    <string>1.10.0</string>
+    <key>NSHumanReadableCopyright</key>
+    <string>© 2026 Damien Guesdon</string>
+    <key>LSApplicationCategoryType</key>
+    <string>public.app-category.developer-tools</string>
     <key>CFBundleExecutable</key>
     <string>ColimaBar</string>
     <key>CFBundlePackageType</key>
