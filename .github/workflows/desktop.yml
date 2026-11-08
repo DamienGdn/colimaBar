@@ -84,8 +84,17 @@ jobs:
       - name: Install Tauri CLI
         run: npm ci
 
+      # Bundling downloads tools (NSIS, AppImage runtime) from GitHub releases,
+      # which occasionally answer 5xx. Retry; the compiled binary is reused.
       - name: Build
-        run: npx tauri build --bundles ${{ matrix.bundles }}
+        shell: bash
+        run: |
+          for attempt in 1 2 3; do
+            npx tauri build --bundles ${{ matrix.bundles }} && exit 0
+            echo "::warning::tauri build attempt $attempt failed, retrying in 30 s"
+            sleep 30
+          done
+          exit 1
 
       - uses: actions/upload-artifact@v4
         with:
